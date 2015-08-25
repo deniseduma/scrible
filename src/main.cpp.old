@@ -1,0 +1,80 @@
+/***************************************************************************
+ *   Copyright (C) 2011 by Marco Beccuti   *
+ *   beccuti@di.unito.it   *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#ifndef __STDI__
+	#define __STDI__
+	#include <stdio.h>
+#endif
+
+#ifndef __STR_H__
+	#define __STR_H__
+	#include <string.h>
+
+#endif
+
+#ifndef __IOS_H__
+	#define __IOS_H__
+	#include <iostream>
+#endif 
+
+#ifndef __STDL__
+	#define __STDL__
+	#include <stdlib.h>
+#endif
+
+#ifndef __OPER_H__
+	#define __OPER_H__
+	#include "operation.h"
+#endif
+
+
+#ifndef __VCT_H__
+	#define __VCT_H__
+	#include <vector>
+#endif
+
+
+using namespace  std;
+using namespace  OPER;
+
+extern int initParser(string filenamem,vector <class OPERATOR>& );
+
+int main(int argc, char *argv[])
+{
+
+
+cout<<"\n\n =========================================================\n";
+cout<<"|	         	   TEST PARSER     	          |\n";
+cout<<" =========================================================\n";
+cout<<"\n If you find any bug, send an email to beccuti@di.unito.it\n";
+vector <class OPERATOR> operations;
+
+if (argc!=2)
+	{
+	std::cerr<<"\n\nUSE: TEST <path/inputFile>\n\n";
+	exit(EXIT_FAILURE);
+	}
+string filename(argv[1]);
+initParser(filename,operations);
+};

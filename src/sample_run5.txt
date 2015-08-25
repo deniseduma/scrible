@@ -1,0 +1,1 @@
+./hashfilter /scratch11/hv5_reads_v3/pool.txt /scratch11/denise/hv5/pools_91_2197Sorted.dat /scratch11/denise/hv5/output 26 91 1

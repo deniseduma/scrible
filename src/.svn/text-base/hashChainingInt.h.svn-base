@@ -1,0 +1,1302 @@
+/***************************************************************************
+ *   Copyright (C) 2011 by Marco Beccuti   *
+ *   beccuti@di.unito.it   *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+#ifndef __CON_H__
+	#define __CON_H__
+	#include "const.h"
+#endif
+
+#ifndef __CNF_H__
+	#define __CNF_H__
+	#include "conf.h"
+#endif
+
+
+#ifndef __FSTREAM__
+	#define __FSTREAM__
+	#include <fstream>
+#endif
+
+#ifndef __IOS_H__
+	#define __IOS_H__
+	#include <iostream>
+#endif 
+
+
+#ifndef __STDL__
+	#define __STDL__
+	#include <stdlib.h>
+#endif
+
+#ifndef __VCT_H__
+	#define __VCT_H__
+	#include <vector>
+#endif
+
+#ifndef __CMB_H__
+	#define __CMB_H__
+	#include "classMybitsetChar.h"
+#endif
+
+
+
+#ifndef __LMT_H__
+	#define __LMT_H__
+	#include <limits.h>
+#endif
+
+
+#ifndef __OPER_H__
+	#define __OPER_H__
+	#include "operation.h"
+#endif
+
+namespace Cl_HASH
+{
+using namespace  MYBIT;
+using namespace std;
+using namespace OPER;
+
+
+
+
+
+template <class A_Type> class HASHCH{
+
+private:
+//!Hash table
+unsigned int * HashVec;
+//!Collisions' list
+A_Type * ListCol;
+//!Hash table size 
+unsigned int SizeHash;
+//!Whole Collisions' list size.
+//unsigned int mod;
+unsigned int SizeList;
+//!Number of elements in the hash table
+unsigned int NumEl;
+//!Counting vector
+int VCount[POOLS]; 
+public:
+	//!Empty Constructor.
+	HASHCH(){
+	HashVec=NULL;
+	SizeHash=0;
+	 SizeList=0;
+	NumEl=0;
+	};
+	
+	//!Constructor. It takes in input the Hash table size.
+	HASHCH(const unsigned int sizeHash, const unsigned int sizeList){
+	this->SizeHash=sizeHash;
+	this->SizeList=sizeList;
+	NumEl=0;
+	HashVec=(unsigned int*)malloc(SizeHash*sizeof(unsigned int));
+	for (unsigned int i=0;i<SizeHash;i++)
+		{
+		HashVec[i]=DEFAULTP;
+		}
+	//memset(HashVec,DEFAULTP, SizeHash*sizeof(unsigned long) );
+	ListCol=(A_Type*)malloc(SizeList*sizeof(A_Type));
+	memset(VCount,0, POOLS*sizeof(int) );
+	};
+	//!It removes the allocated memory
+	~HASHCH(){
+	free(HashVec);
+	free(ListCol);
+	}
+	
+	//!It updates the hash size
+	void UpdateHash(const unsigned int& sizeHash,const unsigned int& sizeList){
+	this->SizeHash=sizeHash;
+	this->SizeList=sizeList;
+	HashVec=(unsigned int*)malloc(SizeHash*sizeof(unsigned int));
+	for (unsigned int i=0;i<SizeHash;i++)
+		{
+		HashVec[i]=DEFAULTP;
+		}
+	//memset(HashVec,DEFAULTP, SizeHash*sizeof(unsigned long) );
+	ListCol=(A_Type*)malloc(SizeList*sizeof(A_Type));
+	memset(VCount,0, POOLS*sizeof(int) );
+	};
+
+
+	//!It resizes the hashtable 
+	void resize(const unsigned int& incHash,const unsigned int& incList){
+	//save old hashtable
+	unsigned int oldSizeHash = SizeHash;
+	//unsigned int oldSizeList = SizeList; 
+	unsigned int* oldHashVec = HashVec;
+	A_Type* oldListCol = ListCol; 
+	
+	//reallocate a new hashtbale
+	SizeHash += incHash;
+	SizeList += incList;
+	HashVec=(unsigned int*)malloc(SizeHash*sizeof(unsigned int));
+	for (unsigned int i=0;i<SizeHash;i++)
+		{
+		HashVec[i]=DEFAULTP;
+		}
+	//memcpy(newHashVec, HashVec, SizeHash*sizeof(unsigned int) );
+	ListCol=(A_Type*)malloc(SizeList*sizeof(A_Type));
+	//memcpy(newListCol, ListCol, NumEl*sizeof(A_Type) );
+	
+	//rehash all the elements from the old hashtable into the new one
+	NumEl = 0;
+	for(unsigned int i=0;i<oldSizeHash;i++) {
+		unsigned int tmpInode = oldHashVec[i];
+    		while(tmpInode!=DEFAULTP)
+		{
+			insert(oldListCol[tmpInode]);
+			tmpInode = oldListCol[tmpInode].Inext;
+    		}
+	}
+
+	free(oldHashVec);
+	free(oldListCol);
+	}
+	
+	
+	//!Hash function. It takes in input a integer value.
+	inline unsigned int hash(const unsigned long long& value){
+	//return (H(value)) % SizeHash;
+	register unsigned  long long u=value;
+	register unsigned  long long v=value>>32;
+	//return (((u*2+v)*A)%L)%SizeHash;
+	return ((u*2+v)*A)%SizeHash;
+	//return (value%L) % SizeHash;
+	};
+
+ 	//!It inserts the input value in the hash table, using chaining.  
+	inline void insert(A_Type& b){
+	unsigned int probe = hash(b.trans());
+	unsigned int  tmpInext = HashVec[probe];
+	HashVec[probe] = NumEl;
+	ListCol[NumEl]=b;
+        ListCol[NumEl].Inext = tmpInext;
+	NumEl++;
+	if (NumEl>SizeList)
+		{
+		cerr << "\n*****Error the number of elements ("<<NumEl <<")is bigger then list entries *****" << endl;
+		exit(EXIT_FAILURE);
+		}
+	};
+ 	
+	
+	//!It seach all the element in the current hash table in the input hash table. It returns a bitset of size POOLS. 
+	mybitsetBAC search(HASHCH<mybitset>& sh, HASHCH<mybitsetBAC>& shBAC, bitset <POOLS> BACTable[BACS],unsigned long long* freqPool,const unsigned long long& maxpools, unsigned short& BAC3){
+	bitset <POOLS> p,s;
+	BAC3=MAXSHORT;
+	//s.flip();
+	//cout<<s<<endl;
+#if CORRECTION
+	unsigned int fv[POOLS]={0};
+	unsigned int w=0;
+#endif
+#if CORRECTIONG
+	unsigned int fvG[POOLS]={0};
+	unsigned int wG=0;
+#endif	
+	int count=0;
+	for (unsigned int i=0;i<SizeHash;i++)
+		{
+		unsigned int tmpInext = HashVec[i];
+    		while(tmpInext !=DEFAULTP)
+			{
+#if SEARCHNORMAL
+			int res= sh.searchCopy(ListCol[tmpInext]);
+#else
+			int res= sh.searchAndmove(ListCol[tmpInext]);
+#endif	
+			//mybitsetBAC b(ListCol[tmpInext]);
+#if CORRECTIONG			
+			ListCol[tmpInext].unionPV(s,fvG);
+#else
+			ListCol[tmpInext].unionPV(s);
+#endif
+			switch(res)
+				{
+				case 6:
+ 				case 7:
+ 				case 12:
+ 				case 13:
+ 				case 14:
+					{
+ 					mybitsetBAC b(ListCol[tmpInext]);
+ 					if (shBAC.searchCopy(b))
+ 						{
+						if (res==6)
+							p|=BACTable[b.get(0)];
+						else
+							{
+ #if CORRECTION
+ 							b.unionPV(p,fv);
+ 							w++;
+ #else
+ 							//ListCol[tmpInext]
+							b.unionPV(p);
+ #endif		
+							}
+						//b.intersecPV(s);	
+ 						}
+ 					else
+ 						{
+ 						if ((res!=6)&&(res!=12))
+ 							{
+ 							b.removeMin(ListCol[tmpInext],1,freqPool,maxpools);
+ 							if (shBAC.searchCopy(b))
+ 								{
+								if (res==7)
+									p|=BACTable[b.get(0)];
+								else
+									{
+#if CORRECTION
+ 									b.unionPV(p,fv);
+ 									w++;
+#else
+ 									b.unionPV(p);
+#endif								
+									}
+								//b.intersecPV(s);	
+ 								}
+ 							}
+ 						}
+					}
+ 				break;
+ 				case 8:
+				case 9:
+				case 10:
+				case 11:
+					{
+					mybitsetBAC b(ListCol[tmpInext]);
+					b.removeMin(ListCol[tmpInext],res-7,freqPool,maxpools);
+					if (shBAC.search(b))
+						{
+#if CORRECTION
+						b.unionPV(p,fv);
+						w++;
+#else
+						b.unionPV(p);
+#endif					
+						//b.intersecPV(s);
+						}
+					}
+				break;	
+                                case 15:
+                                case 16:
+                                       {
+                                        mybitsetBAC b(ListCol[tmpInext]);
+                                        b.removeMin(ListCol[tmpInext],res-14,freqPool,maxpools);
+                                        if (shBAC.search(b))
+                                                {
+#if CORRECTION
+                                                b.unionPV(p,fv);
+                                                w++;
+#else
+                                                b.unionPV(p);
+#endif
+						//b.intersecPV(s);	
+                                                }
+                                        }
+                                break;
+
+				}
+        		 tmpInext= ListCol[tmpInext].Inext;
+    			}
+		HashVec[i]=DEFAULTP;
+		}
+#if CORRECTION
+	w=(double)w*TCOR;
+	corr(p,fv,w);
+#endif
+	NumEl=0;
+	count=p.count();
+	mybitsetBAC b(p);
+	//if ((count!=6))
+	//	{
+ 		if ((count!=6)&&(shBAC.searchCopy(b)))
+			{
+			if (count!=0)
+				VCount[count-1]++;
+			return b;
+			}
+		else
+			{
+			
+			mybitsetBAC c(s);
+#if OUTPUTXDENISE
+			return c;
+#endif
+#if OVERLAPPING3
+#if CORRECTIONG
+			wG=(double)wG*TCOR;
+			corr(s,fvG,wG);
+#endif
+			count=s.count();
+			if ((count<=24)&&(count>=7))
+				{
+				int found=0;
+				for (unsigned short i=0;i<BACS&&found<3;i++)
+					{
+					bitset <POOLS> z;
+					z.flip();
+					z&=s;
+					z&=BACTable[i];
+					 if (z.count()==7)
+						{
+						if (found<2)
+							c.set(i,found);
+						else
+							BAC3=i;
+						found++;
+						}
+					}
+				}
+#endif
+			return c;
+			}
+	//	else
+	//		{
+	//		mybitsetBAC c(s);
+	//		if (shBAC.searchCopy(c))
+	//			{
+	//			if (count!=0)
+	//				VCount[count-1]++;
+	//			}
+	//		return c;
+	//		}
+	//	}
+	//else
+	//	b.clear();
+	//return b;
+	};
+	
+#if CORRECTIONREAD
+//!It seach all the element in the current hash table in the input hash table. It returns a bitset of size POOLS. 
+	bool search(HASHCH<mybitset>& sh, bitset <POOLS> BACTable[BACS], class mybitset& I, bool RevCompl, char* buffer, unsigned short BAC[MAXOVERLAP], char* bpt, char* apt,unsigned int& notcor,unsigned int& rep,unsigned int& highrep, bool& noCorrKmer, const bool first){
+
+	bitset <POOLS> p,s;
+	if ((!first)&&((*apt=='R')||(*apt=='r')||(*apt=='C')||(*apt=='A')))
+		{
+		noCorrKmer=false;
+		return false;
+		}
+	int res = sh.searchCopy(I);
+	if (res>4)
+		{
+		I.unionPV(p);
+		for (int i=0;i<MAXOVERLAP&&(BAC[i]!=MAXSHORT);i++)
+			{
+			bitset <POOLS> z;
+			z.flip();
+			z&=p;
+			z&=BACTable[BAC[i]];
+			if (p.count()>=28)
+				{
+				if (first)
+					{
+					*apt=*bpt='A';
+					highrep++;
+					}
+				else
+					{
+					if (*bpt=='E')
+						{
+						*apt='r';
+						rep++;
+						return false;
+						}		
+					}
+				return false;		
+				}
+			else
+			if ((z.count()>5)||((!first)&&(z.count()>4)))
+				{
+				if (first)
+					*apt=*bpt='C';
+				else
+				if (*bpt=='E')
+						{
+						*apt='R';
+						rep++;
+						}
+				noCorrKmer=false;
+				return false;
+				}
+			}
+		}
+	if ((*bpt!='A')&&(first))
+		notcor++;
+//Correction	
+	char l[4]={'A','C','G','T'};
+	char tmp;
+	class mybitset b,d;
+
+	for (int k=0;k<4;k++)
+		if (((buffer[0]!=l[k])&&(noCorrKmer))||((buffer[DIM-1]!=l[k])&&(!noCorrKmer)))
+			{
+			if (noCorrKmer)
+				{
+				tmp=buffer[0];
+				buffer[0]=l[k];
+				}
+			else
+				{
+				tmp=buffer[DIM-1];
+				buffer[DIM-1]=l[k];
+				}
+			int z=0;
+			int j=DIM*2-1;
+			for (int c = 0; c<DIM; c++) 
+				{
+        			switch (buffer[c])
+					{
+					case 'A':
+						b.set(z,0);
+						z++;
+						b.set(z,0);
+						z++;
+						d.set(j,1);
+						j--;
+						d.set(j,1);
+						j--;
+					break;
+					case 'C':
+						b.set(z,0);
+						z++;
+						b.set(z,1);
+						z++;
+						d.set(j,0);
+						j--;
+						d.set(j,1);
+						j--;
+					break;
+					case 'G':
+						b.set(z,1);
+						z++;
+						b.set(z,0);
+						z++;
+						d.set(j,1);
+						j--;
+						d.set(j,0);
+						j--;
+					break;
+					case 'T':
+						b.set(z,1);
+						z++;
+						b.set(z,1);
+						z++;
+						d.set(j,0);
+						j--;
+						d.set(j,0);
+						j--;
+					break;
+					default:
+						cerr<<"Error processing window"<<endl<<endl;
+						exit(EXIT_FAILURE);
+					}
+				}
+				z=0;
+				if (d<b)
+					{
+					res= sh.searchCopy(d);	
+					}
+				else
+					{
+					res= sh.searchCopy(b);		
+					}
+				if (res>3)
+					{
+					I.unionPV(s);
+					//if (s.count()<28)
+					//	{
+						for (int i=0;i<MAXOVERLAP&&(BAC[i]!=MAXSHORT);i++)
+							{
+							bitset <POOLS> z;
+							z.flip();
+							z&=s;
+							z&=BACTable[BAC[i]];
+							if ((z.count()>4)&&(s.count()<28))
+								{
+								*apt='R';
+								rep++;
+								noCorrKmer=false;
+								return true;
+								}
+							else
+								{
+								if (s.count()>=28)
+								*apt='r';
+                                                                rep++;
+                                                                noCorrKmer=false;
+                                                                return false;
+
+								}	
+							}
+					//	}	
+					}
+				if (noCorrKmer)
+					buffer[0]=tmp;
+				else
+					buffer[DIM-1]=tmp;
+				}
+	return false;
+	};
+#endif
+
+
+
+
+	//!It inserts all the elements from the input hash table into the current hash table. 
+	void insert(HASHCH<mybitset>& sh){
+	for (unsigned int i=0;i<sh.SizeHash;i++)
+		{
+		unsigned int tmpInext = sh.HashVec[i];
+    		while(tmpInext != DEFAULTP)
+		{
+		 	insert(sh.ListCol[tmpInext]);
+        		tmpInext= sh.ListCol[tmpInext].Inext;
+    		}
+		//sh.HashVec[i]=DEFAULTP;
+		}
+	}		
+
+	//!It resets the hash table from index position and sets NumEl to 0
+	inline void resetHT(unsigned int index){
+	NumEl=0;
+	for (unsigned i=index;i<SizeHash;i++)
+		HashVec[i]=DEFAULTP;
+	}
+
+	//!It searches  a value in the hash table  and if it is found then it copies in b the pool bitvector
+	inline int searchCopy(A_Type& b){
+	unsigned int tmpInode = HashVec[hash(b.trans())];
+    	while(tmpInode !=DEFAULTP)
+		{
+        	if(ListCol[tmpInode]==b) 
+			{
+			return ListCol[tmpInode].copy(b);
+			}
+        	tmpInode= ListCol[tmpInode].Inext;
+    		}
+    	return 0;
+	};
+	//!It searches  a value in the hash table and if it found it return true.
+	inline bool search(A_Type& b){
+	unsigned int tmpInode = HashVec[hash(b.trans())];
+    	while(tmpInode !=DEFAULTP)
+		{
+        	if(ListCol[tmpInode]==b) 
+			{
+			return true;
+			}
+        	tmpInode= ListCol[tmpInode].Inext;
+    		}
+    	return false;
+	};
+
+	//!It searches  a value in the hash table and if it is found then it copies in b the pool bitvector
+	inline int searchAndmove(A_Type& b){
+	unsigned int probe=hash(b.trans());
+	if (HashVec[probe]==DEFAULTP)
+		return 0;
+	unsigned int tmpInode = HashVec[probe],tmpInode2;
+	if(ListCol[tmpInode]==b) 
+			{
+			return ListCol[tmpInode].copy(b);
+			}
+    	while(ListCol[tmpInode].Inext !=DEFAULTP)
+		{
+		tmpInode2=ListCol[tmpInode].Inext;
+        	if(ListCol[tmpInode2]==b) 
+			{
+			ListCol[tmpInode].Inext=ListCol[tmpInode2].Inext;
+			ListCol[tmpInode2].Inext= HashVec[probe];
+			HashVec[probe]=tmpInode2;
+			return ListCol[tmpInode2].copy(b);
+			}
+		tmpInode=tmpInode2;
+    		}
+    	return 0;
+	};
+	//!It searches  a value in the hash table and if it is found then it updates the pool bitvector.
+	bool searchAndmoveSetPool(A_Type& b,const int pool){
+	unsigned int probe=hash(b.trans());
+	if (HashVec[probe]==DEFAULTP)
+		return false;
+	unsigned int tmpInode = HashVec[probe],tmpInode2;
+	if(ListCol[tmpInode]==b) 
+			{
+			ListCol[tmpInode].setVP(pool);
+			return true;
+			}
+    	while(ListCol[tmpInode].Inext !=DEFAULTP)
+		{
+		tmpInode2=ListCol[tmpInode].Inext;
+        	if(ListCol[tmpInode2]==b) 
+			{
+			ListCol[tmpInode].Inext=ListCol[tmpInode2].Inext;
+			ListCol[tmpInode2].Inext= HashVec[probe];
+			HashVec[probe]=tmpInode2;
+			ListCol[tmpInode2].setVP(pool);
+#if REPET
+			ListCol[tmpInode2].inc();
+#endif
+			return true;
+			}
+        	tmpInode=tmpInode2;
+    		}
+    	return false;
+	};
+
+
+	//!It removes  a value from the hash table, and returns true if actually found 
+	bool removeCopyOld(A_Type& b){
+	unsigned int probe=hash(b.trans());
+	if (HashVec[probe]==DEFAULTP)
+		return false;
+	unsigned int tmpInodePrev = HashVec[probe], tmpInode = HashVec[probe];
+	if(ListCol[tmpInode]==b) 
+			{
+			//NumEl--;
+			ListCol[tmpInode].copy(b);
+			HashVec[probe] = ListCol[tmpInode].Inext;
+			return true;
+			}
+    	while(tmpInode != DEFAULTP)
+		{
+		if(ListCol[tmpInode]==b) 
+			{
+			//NumEl--;
+			ListCol[tmpInode].copy(b);
+			ListCol[tmpInodePrev].Inext=ListCol[tmpInode].Inext;
+			return true;
+			}
+        	tmpInodePrev = tmpInode;
+		tmpInode=ListCol[tmpInode].Inext;
+    		}
+    	return false;
+	};
+
+
+	//!It removes  a value from the hash table, and returns true if actually found. It works by swapping the 
+	//value to be deleted with the element on the last position in the collison list because of the way 
+	//the collisin list is implemented which makes deletions difficult. 
+	bool removeCopy(A_Type& b){
+	unsigned int probe=hash(b.trans());
+	if (HashVec[probe]==DEFAULTP)
+		return false;
+	unsigned int probeEnd=hash(ListCol[NumEl-1].trans());
+	unsigned int tmpInode = HashVec[probeEnd];
+	unsigned int tmpInodePrev1 = HashVec[probeEnd];
+	while (tmpInode != (NumEl-1)) {
+		tmpInodePrev1 = tmpInode;
+		tmpInode=ListCol[tmpInode].Inext;
+	}
+	tmpInode = HashVec[probe];
+	unsigned int tmpInodePrev2 = HashVec[probe];
+	if(ListCol[tmpInode]==b) 
+			{
+			ListCol[tmpInode].copy(b);
+			HashVec[probe] = ListCol[tmpInode].Inext;
+			ListCol[tmpInode] = ListCol[NumEl-1];
+			if(HashVec[probeEnd] == (NumEl-1))
+				HashVec[probeEnd] = tmpInode;
+			else	
+				ListCol[tmpInodePrev1].Inext = tmpInode;
+			NumEl--;
+			return true;
+			}
+    	while(tmpInode != DEFAULTP)
+		{
+		if(ListCol[tmpInode]==b) 
+			{
+			ListCol[tmpInode].copy(b);
+			ListCol[tmpInodePrev2].Inext=ListCol[tmpInode].Inext;
+			ListCol[tmpInode] = ListCol[NumEl-1];
+			if(HashVec[probeEnd] == (NumEl-1))
+				HashVec[probeEnd] = tmpInode;
+			else	
+				ListCol[tmpInodePrev1].Inext = tmpInode;
+			NumEl--;
+			return true;
+			}
+        	tmpInodePrev2 = tmpInode;
+		tmpInode=ListCol[tmpInode].Inext;
+    		}
+    	return false;
+	};
+	
+	
+	//!It searches  a value in the hash table if it is found then it updates the pool
+	inline bool searchSetPool(A_Type& b,const int pool){
+	
+	unsigned int tmpInode = HashVec[hash(b.trans())];
+    	while(tmpInode !=DEFAULTP)
+		{
+        	if(ListCol[tmpInode]==b) 
+			{
+			ListCol[tmpInode].setVP(pool);
+#if REPET
+			ListCol[tmpInode].inc();
+#endif
+			return true;
+			}
+        	tmpInode = ListCol[tmpInode].Inext;
+    		}
+    	return false;
+	};
+
+	//!It prints the linked list stored in HashTable[row] in a file
+	void printList(int row,ofstream& out){
+	unsigned int tmpInode = HashVec[row];
+    	while(tmpInode!=DEFAULTP)
+		{
+		out<<ListCol[tmpInode]<<endl;
+		tmpInode = ListCol[tmpInode].Inext;
+    		}
+	};
+
+	//!It prints the linked list stored in HashTable[row]
+	void printList(int row){
+	unsigned int  tmpInode = HashVec[row];
+	if (tmpInode!=DEFAULTP)
+		cout<<"\nHASH["<<row<<"]:\t"; 
+    	while(tmpInode!=DEFAULTP)
+		{
+		cout<<ListCol[tmpInode]<<" ";
+        	tmpInode = ListCol[tmpInode].Inext;
+    		}
+	};
+
+	//!It prints the size of the linked list stored in HashTable[row]
+	void printSize(int row){
+	unsigned int tmpInode = HashVec[row];
+	int i=0;
+	if (tmpInode!=DEFAULTP)
+		cout<<"\nHASH["<<row<<"]:\t"; 
+    	while(tmpInode!=DEFAULTP)
+		{
+		i++;
+        	tmpInode = ListCol[tmpInode].Inext;
+    		}
+	if (i>0)
+		cout<<i<<endl;
+	};
+
+	//!It prints the whole HashTable in a file 
+	void print(ofstream& out){
+	for(unsigned int i=0;i<SizeHash;i++)
+		{
+        	printList(i,out);
+		}
+	};
+
+	//!It prints the whole HashTable 
+	void print(){
+	for(unsigned int i=0;i<SizeHash;i++)
+		{
+//#if DEBUG1
+        	printList(i);
+//#endif
+//		printSize(i);
+		}
+	cout<<endl;
+	};
+	//!It returns the HASH size
+	unsigned int size(){
+	return NumEl;
+	};
+
+	//!It returns the capacity of the hashtable
+	unsigned int capacity() {
+	return SizeHash;
+	};
+
+	//!It prints some statistical information on the Hash Table
+	void info()
+	{
+	unsigned int hashentry=0;
+	for (unsigned int i=0;i<SizeHash;i++)
+		{
+		if (HashVec[i]!=DEFAULTP)
+			hashentry++;	
+		}
+	cout<<"Hash table buckets: "<<hashentry<<endl;
+	cout<<"Avergage size of collisions list: "<<(double)NumEl/hashentry<<endl;
+	}
+
+	//!It prints the counting vector according to the following format: <number_of_pools>' ' <number_of_reads> 
+	void PrintVCount(ofstream& out){
+	for(unsigned int i=0;i<POOLS;i++)
+		{
+        	out<<i+1<<" "<<VCount[i]<<endl;
+		}
+	};
+
+	//!It  uses the read pools frequency vector fv to derive the set of pools in which the read  is contained. In details, all the founded pools with frequency lower than the given threshold w are removed from p.
+	inline void corr(bitset<POOLS>& p, unsigned int fv[],unsigned int w)
+	{
+	for(unsigned int i=0;i<POOLS;i++)
+		{
+		if ((p[i]==1)&&(fv[i]<w))
+			{
+			p[i]=0;
+			}
+		}
+	}
+
+	//!It takes in input the output file name and save on it (in binary format) the hash table.
+	void Write(string output)
+	{	
+	FILE * pFile;
+	string tmp=output+".hash";
+  	pFile = fopen ( tmp.c_str(), "w" );
+	if (pFile==NULL)
+  		{
+		cerr<<"\n*****Error opening output file .hash *****" << endl;
+		exit(EXIT_FAILURE);
+		}
+	//write hash size
+  	fwrite (&SizeHash, sizeof(SizeHash),1 , pFile );
+	//write int vector
+	fwrite (HashVec, sizeof(unsigned int), SizeHash, pFile );
+  	fclose (pFile);
+	cout<<"Hash table saved in:\n\t"<<tmp<<endl;
+	tmp=output+".collist";
+	pFile = fopen ( tmp.c_str(), "w" );
+	//write collisions list size
+	fwrite (&SizeList, sizeof(SizeList), 1, pFile );
+	//write number of elements
+	fwrite (&NumEl, sizeof(NumEl), 1, pFile );
+	//write myclassbit vector
+	fwrite (ListCol, sizeof(A_Type), SizeList, pFile );
+	fclose (pFile);
+	cout<<"Collisions' list saved in:\n\t"<<tmp<<endl;
+	};
+
+	//!It takes in input the intput file name and updates the hash table
+	bool Read(string output)
+	{
+	FILE * pFile;
+	string tmp=output+".hash";
+  	pFile = fopen ( tmp.c_str(), "r" );
+	if (pFile==NULL)
+  		{
+		cerr<<"\n*****Error opening input file .hash *****" << endl;
+		cout<<"\nHash Table binary encoding not found!"<<endl;
+		return false;
+		}
+	//write hash size
+  	if (fread (&SizeHash, sizeof(SizeHash),1 , pFile )!=1)	
+		{	
+		cerr<<"Reading error"<<endl; 
+		exit (EXIT_FAILURE);
+		}
+	HashVec=(unsigned int*)malloc(SizeHash*sizeof(unsigned int));	
+	//write int vector
+	if (fread (HashVec, sizeof(unsigned int), SizeHash, pFile )!=SizeHash)
+		{	
+		cerr<<"Reading error"<<endl; 
+		exit (EXIT_FAILURE);
+		}	
+  	fclose (pFile);
+	tmp=output+".collist";
+	pFile = fopen ( tmp.c_str(), "r" );
+	if (pFile==NULL)
+  		{
+		cerr<<"\n*****Error opening input file .hash *****" << endl;
+		cout<<"\nHash Table binary encoding not found!"<<endl;
+		return false;
+		}
+	//write collisions list size
+	if (fread (&SizeList, sizeof(SizeList), 1, pFile )!=1)
+		{
+		cerr<<"Reading error"<<endl; 
+		exit (EXIT_FAILURE);
+		}
+	//write number of elements
+	if (fread (&NumEl, sizeof(NumEl), 1, pFile )!=1)
+		{
+		cerr<<"Reading error"<<endl; 
+		exit (EXIT_FAILURE);
+		}	
+	//write myclassbit vector
+	ListCol=(A_Type*)malloc(SizeList*sizeof(A_Type));
+	if (fread (ListCol, sizeof(A_Type), SizeList, pFile )!=SizeList)
+		{
+		cerr<<"Reading error"<<endl; 
+		exit (EXIT_FAILURE);
+		}
+// 	for (int j=0;j<SizeList;j++)
+// 		cout<<"["<<j<<"]"<<ListCol[j]<<endl;
+	fclose (pFile);
+	cout<<"\n\tHash Table encoding found";
+	return true;
+	}
+
+	void CountW(unsigned int WCount[]){
+	bitset <POOLS> p;
+	int j=0;
+	for(unsigned int i=0;i<NumEl;i++)
+		{
+		p.reset();
+		ListCol[i].unionPV(p);
+		if ((j=p.count())>0)
+			WCount[j-1]++;
+		}
+	};
+#if REPET
+// 	void CountR(unsigned int RCount[],unsigned int RCount1[]){
+// 	bitset <POOLS> p;
+// 	int j=0;
+// 	char buffer[MAXSIZE];
+// 	for(unsigned int i=0;i<NumEl;i++)
+// 		{
+// 		p.reset();
+// 		ListCol[i].unionPV(p);
+// 		if (((j=p.count())>0)&&(ListCol[i].getCW()>CUT))
+// 			{
+// 			RCount[j-1]+=ListCol[i].getCW();
+// 			RCount1[j-1]++;
+// 			}
+// 		if (j==8)
+// 			{
+// 			buffer[0]='\0';
+// 			ListCol[i].bit2buffer(buffer);
+// 			cout<<buffer<<endl;
+// 			}
+// 		}
+// 	};
+	
+ 	void CountR(ofstream& out,unsigned long long* count){
+  	int j=0;
+	double max=0;
+ 	double min=MAXFREQ;
+ 	double val=0.0;
+	unsigned long long maxpool=0;
+	int POOL=1;
+	for (int i=0;i<POOLS;i++)
+		if (maxpool<count[i])
+			maxpool=count[i]; 
+  	for(unsigned int i=0;i<NumEl;i++)
+  		{ 		
+  		j=ListCol[i].count();
+  		if ((j<=NUMC)&&(j==POOL))
+  			{
+ 			ostringstream out1;
+ 			out1<<ListCol[i];
+ 			double  sum=0.0;
+			max=0;
+			min=MAXFREQ;
+			int jj=0;
+			for (int kk=0;(kk<POOLS&&jj<POOL);kk++)
+				{
+				if (ListCol[i].getVP(kk)==1)
+					{
+					val=(((double)ListCol[i].getCW(jj))/count[kk])*maxpool;
+					sum+=val;
+ 					if (val > max)
+ 						max=val;
+ 					if (val < min)
+ 						min =val;
+  			 		out1<<val<<" ";
+					jj++;
+					}
+				}
+ 			sum=sum/j;
+ 			out1<<"$"<<sum<<"$"<<max/min;
+ 			//double mm=sum*0.6;
+ 			//if ((max<sum+mm)&&(sum-mm<min))
+ 			//	{
+ 				out<<out1.str()<<endl;
+ 			//	}
+  			}
+  		}
+  	};
+
+
+void Average(ofstream& out,vector<class OPERATOR>::iterator it,unsigned long long* count){
+	unsigned long long maxpool=0;
+	double val=0.0;
+	double max=0.0;
+	double min=MAXFREQ;
+	for (int i=0;i<POOLS;i++)
+		if (maxpool<count[i])
+			maxpool=count[i]; 
+	for(unsigned int i=0;i<NumEl;i++)
+  		{ 		
+  		int j=ListCol[i].count();
+		bool check=false;
+		if (j<=NUMC)
+			{
+			vector <int>::iterator itv = it->p1.begin();
+			while ((itv!=it->p1.end())&&(!check))
+				{
+				if (j==(*itv))
+					{
+					check=true;
+					}
+				else
+					itv++;
+				}
+			}
+  		if ((check))
+  			{
+ 			out<<">"<<j<<"_"<<ListCol[i]<<"\n$";
+			int jj=0;
+			max=0.0;
+			min=MAXFREQ;
+			double sum=0.0;
+			for (int kk=0;(kk<POOLS&&jj<j);kk++)
+				{
+				if (ListCol[i].getVP(kk)==1)
+					{
+					val=(((double)ListCol[i].getCW(jj))/count[kk])*maxpool;
+  			 		out<<val<<" ";
+					if (val > max)
+						max=val;
+					if (val < min)
+						min =val;
+					jj++;
+					sum+=val;
+					}
+				}
+			sum=sum/j;
+ 			out<<"$"<<sum<<"$"<<max/min<<endl;
+			}
+		}
+	}
+	//!It generate all the single mutations of a k-mer
+	void mutation(char* buffer,const mybitset& a,class HASHCH& rd,ofstream& out,unsigned long long* count,unsigned long long& maxpool,vector<class OPERATOR>::iterator it){
+	char l[4]={'A','C','G','T'};
+	char tmp;
+	class mybitset b,d;
+	for (int i=0;i<DIM;i++)
+		{
+		for (int k=0;k<4;k++)
+			if (buffer[i]!=l[k])
+				{
+				tmp=buffer[i];
+				buffer[i]=l[k];
+				int z=0;
+				int j=DIM*2-1;
+				for (int c = 0; c<DIM; c++) 
+					{
+              				switch (buffer[c])
+						{
+						case 'A':
+							b.set(z,0);
+							z++;
+							b.set(z,0);
+							z++;
+							d.set(j,1);
+							j--;
+							d.set(j,1);
+							j--;
+						break;
+						case 'C':
+							b.set(z,0);
+							z++;
+							b.set(z,1);
+							z++;
+							d.set(j,0);
+							j--;
+							d.set(j,1);
+							j--;
+						break;
+						case 'G':
+							b.set(z,1);
+							z++;
+							b.set(z,0);
+							z++;
+							d.set(j,1);
+							j--;
+							d.set(j,0);
+							j--;
+						break;
+						case 'T':
+							b.set(z,1);
+							z++;
+							b.set(z,1);
+							z++;
+							d.set(j,0);
+							j--;
+							d.set(j,0);
+							j--;
+						break;
+						default:
+							cerr<<"Error processing window"<<endl<<endl;
+							exit(EXIT_FAILURE);
+						}
+					}
+					z=0;
+					if (d<b)
+						{
+						rd.insert(d);
+						}
+					else
+						{
+						rd.insert(b);
+						}
+				buffer[i]=tmp;
+				}
+		}
+	if (rd.size()!=0)
+ 			rd.searchErr(a,this,out,count,maxpool,it);
+	}
+
+	//!This function is used to obtain the number of k-mer for each different pool list
+	void Count(ofstream& out)
+	{
+	unsigned int countV[POOLS]={0};
+	
+	for(unsigned int i=0;i<NumEl;i++)
+  		{ 		
+  		int j=ListCol[i].count();
+		countV[j-1]++;
+		}
+	out<<"Frequencies vector:"<<endl;
+	for (int i=0;i<POOLS;i++)
+		{
+		out<<countV[i]<<endl;
+		}
+	}
+
+	//!This function is used to generate windows' corrections.
+	void Correction(ofstream& out,vector<class OPERATOR>::iterator it,unsigned long long* count){
+	unsigned long long maxpool=0;
+	double val=0.0;
+	for (int i=0;i<POOLS;i++)
+		if (maxpool<count[i])
+			maxpool=count[i]; 
+	for(unsigned int i=0;i<NumEl;i++)
+  		{ 		
+  		int j=ListCol[i].count();
+		bool check=false;
+		if (j<=NUMC)
+			{
+			vector <int>::iterator itv = it->p1.begin();
+			while ((itv!=it->p1.end())&&(!check))
+				{
+				if (j==(*itv))
+					{
+					check=true;
+					}
+				else
+					itv++;
+				}
+			}
+  		if ((check))
+  			
+  			{
+ 			out<<">"<<j<<"_"<<ListCol[i]<<"\n$";
+			int jj=0;
+			for (int kk=0;(kk<POOLS&&jj<j);kk++)
+				{
+				if (ListCol[i].getVP(kk)==1)
+					{
+					val=(((double)ListCol[i].getCW(jj))/count[kk])*maxpool;
+  			 		out<<val<<" ";
+					jj++;
+					}
+				}
+			out<<endl;
+			char buffer[DIM+1];
+			ListCol[i].bit2buffer(buffer);
+			HASHCH rd;
+			rd.UpdateHash(DIM*3,DIM*3);
+			mutation(buffer,ListCol[i],rd,out,count,maxpool,it);
+			out<<"\\"<<endl;
+			}
+		}
+	}
+
+	//!It seach all the elements in the current hash table in the input hash table. It print in out the found elements 
+	void searchErr(const mybitset& original,HASHCH* sh,ofstream& out,unsigned long long* count,unsigned long long& maxpool,vector<class OPERATOR>::iterator it){
+	bitset <POOLS> p;
+	for (unsigned int i=0;i<SizeHash;i++)
+		{
+		unsigned int tmpInext = HashVec[i];
+    		while(tmpInext !=DEFAULTP)
+			{
+			
+			sh->search(original,ListCol[tmpInext],out,count,maxpool,it);
+        		tmpInext= ListCol[tmpInext].Inext;
+    			}
+		HashVec[i]=DEFAULTP;
+		}
+	};
+	
+	//!It searches  a value in the hash table  and if it is found then it copies in b the pool bitvector
+	inline int search(const mybitset& original, mybitset& b,ofstream& out,unsigned long long* count,unsigned long long& maxpool,vector<class OPERATOR>::iterator it){
+	unsigned int tmpInode = HashVec[hash(b.trans())];
+	double val=0.0;
+    	while(tmpInode !=DEFAULTP)
+		{
+        	if((ListCol[tmpInode]==b))//&&((ListCol[tmpInode].EmptyIntersection(original)))) 
+			{
+			int j=ListCol[tmpInode].count();
+			bool check=false;
+			if (j<=NUMC)
+				{
+				vector <int>::iterator itv = it->p2.begin();
+				while ((itv!=it->p2.end())&&(!check))
+					{
+					if (j==(*itv))
+						{
+						check=true;
+						}
+					else
+						itv++;
+					}
+				}
+			if (check)
+				{
+				out<<">"<<ListCol[tmpInode].count()<<"_"<<ListCol[tmpInode].count(original)<<"_"<<ListCol[tmpInode]<<"\n$";
+				int jj=0;
+				for (int kk=0;(kk<POOLS&&jj<j);kk++)
+					{
+					if (ListCol[tmpInode].getVP(kk)==1)
+						{
+						val=(((double)ListCol[tmpInode].getCW(jj))/count[kk])*maxpool;
+  			 			out<<val<<" ";
+						jj++;
+						}
+					}
+				out<<endl;	
+				return 1;
+				}
+			return 0;
+			}
+        	tmpInode= ListCol[tmpInode].Inext;
+    		}
+    	return 0;
+	};
+
+#endif
+
+};
+
+
+
+
+};
+
+

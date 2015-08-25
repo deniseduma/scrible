@@ -1,0 +1,315 @@
+/***************************************************************************
+ *   Copyright (C) 2011 by Marco Beccuti   *
+ *   beccuti@di.unito.it   *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+
+#ifndef __CIO_H__
+	#define __CIO_H__
+	#include "classIO.h"
+#endif
+
+
+namespace IOFn
+{
+
+
+void IOF::Read(){
+clock_t startGlobal,endGlobal;
+
+char buffer[MAXSIZE];
+
+ifstream in;
+
+reads=0;
+
+
+for (int i=0;i<file;i++)
+{
+startGlobal=clock();
+ostringstream of;
+of<<ReadFname<<i;
+in.open(of.str().c_str(),ofstream::in);
+if(!in) 
+	{
+	cerr << "\n*****Error opening input file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+while (!in.eof())
+	{
+	buffer[0]='\0';
+	in.getline(buffer,MAXSIZE);
+	int num=in.gcount();
+	if ((num>=(unsigned)window)&&((buffer[0]=='A')||(buffer[0]=='G')||(buffer[0]=='C')||(buffer[0]=='T')))
+		{
+			insert(buffer,num,i);
+#if REVERSE
+			convertN(buffer,num);
+			insert(buffer,num,i);
+#endif
+			if(reads%100000==0)
+				{
+				cout<<"Reads: "<<reads<<" windows: "<<count<<" stored windows:  "<<sh.size()<<" rejected  windows: "<<disc<<endl;
+				//sh.print();
+				sh.info();
+				}	
+		}
+	}
+in.close();
+endGlobal=clock();
+cout<<"\n\n\tBitSet size: "<<sh.size()<<" Time to read pool "<<i<<":"<<((double)(endGlobal-startGlobal))/CLOCKS_PER_SEC<<"s."<<endl;
+
+}
+}
+
+void IOF::Write(){
+ofstream pFile;
+
+time_t time_1,time_4;
+
+
+time(&time_1);
+
+
+pFile.open(OFname.c_str(),ofstream::out);
+if (!pFile)
+	{
+	cerr << "\n*****Error opening ouput file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+
+//set<class mybitset>::iterator iter=sh.begin();
+
+
+
+pFile<<"W:"<<window<<" |W|:"<<sh.size()<<" R:"<<reads<<endl;
+sh.print(pFile);
+pFile.close();
+time(&time_4);
+cout<<"Time to format input REFERENCE: "<<(time_4-time_1)<<endl;
+}
+
+
+
+
+
+
+				
+void IOF::insert(const char buffer[],const int& num,const int& pool)
+{
+reads++;
+class mybitset b;
+for(unsigned int k=0; k<=num-(window)-1; k++)
+	{
+	int z=0;
+	bool findN=false;
+	for (int c = 0; c<window; c++) 
+		{
+              	switch (buffer[c+k])
+			{
+			case 'A':
+				b.set(z,0);
+				z++;
+				b.set(z,0);
+				z++;
+			break;
+			case 'C':
+				b.set(z,0);
+				z++;
+				b.set(z,1);
+				z++;
+			break;
+			case 'G':
+				b.set(z,1);
+				z++;
+				b.set(z,0);
+				z++;
+			break;
+			case 'T':
+				b.set(z,1);
+				z++;
+				b.set(z,1);
+				z++;
+			break;
+			default:
+				findN=true;
+				c=window;
+			}
+		}
+	if (!findN)
+		{
+		b.setVP(pool);	
+		count++;
+		sh.insert(b,pool);
+		}
+	else
+		disc++;
+	}
+}
+
+inline void IOF::convertN(char tmp[], const int& num)
+{
+char inv[MAXSIZE];
+string kk;
+for (unsigned int i=0;i<num;i++)
+		{
+		switch (tmp[i])
+			{
+			case 'A':
+				inv[num-i-2]='T';
+				kk+='T';
+			break;
+			case 'C':
+				inv[num-i-2]='G';
+				kk+='G';
+			break;
+			case 'G':
+				inv[num-i-2]='C';
+				kk+='C';
+			break;
+			case 'T':  
+				inv[num-i-2]='A';
+				kk+='A';
+			break;
+			case '\0':
+ 				inv[num-1]='\0';
+			break;
+			default:
+				inv[num-i-2]='N';	
+			}
+		}
+strcpy(tmp,inv);
+}
+
+
+void IOF::Search(){
+
+time_t time_1,time_4;
+
+char buffer[MAXSIZE],name[MAXSIZE];
+
+ifstream in;
+
+reads=0;
+count=0;
+int num=0;
+time(&time_1);
+
+
+ofstream out(OFname.c_str(),ofstream::out);
+if (!out)
+	{
+	cerr << "\n*****Error opening ouput file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+
+for (int i=0;i<file;i++)
+{
+ostringstream of;
+of<<ReadFname<<i;
+in.open(of.str().c_str(),ofstream::in);
+if(!in) 
+	{
+	cerr << "\n*****Error opening input file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+while (!in.eof())
+	{
+	buffer[0]='\0';
+	in.getline(buffer,MAXSIZE);
+	num=in.gcount();
+	if ((num>=(unsigned)window)&&((buffer[0]=='A')||(buffer[0]=='G')||(buffer[0]=='C')||(buffer[0]=='T')))
+		{
+			out<<name<<" +"<<endl;
+			search(buffer,num,out);
+			out<<name<<" -"<<endl;
+			convertN(buffer,num);
+			search(buffer,num,out);
+
+			if(reads%10000==0)
+				{
+				cout<<"Reads "<<reads<<endl;
+				//sh.print();
+				}	
+		}
+	else
+		if ((num>0)&&((buffer[0]!='@')||(buffer[0]!='>')))
+			strcpy(name,buffer);	
+	}
+in.close();
+cout<<"\n\n\t Time to search overlappings: "<<i<<"s."<<endl<<endl;
+time(&time_4);
+}
+}
+
+void IOF::search(const char buffer[],const int& num,ofstream& out)
+{
+reads++;
+
+class mybitset b;
+for(unsigned int k=0; k<=num-(window); k++)
+	{
+	int z=0;
+	bool findN=false;
+	for (int c = 0; c<window; c++) 
+		{
+              	switch (buffer[c+k])
+			{
+			case 'A':
+				b.set(z,0);
+				z++;
+				b.set(z,0);
+				z++;
+			break;
+			case 'C':
+				b.set(z,0);
+				z++;
+				b.set(z,1);
+				z++;
+			break;
+			case 'G':
+				b.set(z,1);
+				z++;
+				b.set(z,0);
+				z++;
+			break;
+			case 'T':
+				b.set(z,1);
+				z++;
+				b.set(z,1);
+				z++;
+			break;
+			default:
+				findN=true;
+				c=window;
+			}
+		}	
+	if (!findN)
+		{
+		count++;
+		if (sh.search(b))
+			{
+			out<<"\t"<<b<<endl;
+			}
+		}
+	}
+}
+
+
+
+}
+

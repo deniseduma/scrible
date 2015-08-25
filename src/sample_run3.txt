@@ -1,0 +1,1 @@
+./hashfilter /scratch11/denise/hv3/pool.fasta /scratch11/denise/hv3/pools_91_2197Sorted.dat /scratch11/denise/hv3/output 26 91 10 

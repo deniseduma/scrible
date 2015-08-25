@@ -1,0 +1,448 @@
+/***************************************************************************
+ *   Copyright (C) 2011 by Marco Beccuti   *
+ *   beccuti@di.unito.it   *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+#ifndef __CON_H__
+	#define __CON_H__
+	#include "const.h"
+#endif
+
+#ifndef __CNF_H__
+	#define __CNF_H__
+	#include "conf.h"
+#endif
+
+
+#ifndef __FSTREAM__
+	#define __FSTREAM__
+	#include <fstream>
+#endif
+
+#ifndef __IOS_H__
+	#define __IOS_H__
+	#include <iostream>
+#endif 
+
+
+#ifndef __STDL__
+	#define __STDL__
+	#include <stdlib.h>
+#endif
+
+
+
+#ifndef __CMB_H__
+	#define __CMB_H__
+	#include "classMybitset.h"
+#endif
+
+
+
+
+namespace Cl_HASH
+{
+using namespace  MYBIT;
+using namespace std;
+
+typedef struct Node{
+    mybitset b;
+    struct Node *next;
+} HashNode;
+
+
+
+
+class HASHCH{
+
+private:
+//!Hash table
+HashNode ** HashVec;
+//!Collisions' list
+HashNode * ListCol;
+//!Hash table size 
+unsigned int SizeHash;
+//!Whole Collisions' list size.
+//unsigned int mod;
+unsigned int SizeList;
+//!Number of elements in the hash table
+unsigned int NumEl;
+//!Counting vector
+int VCount[POOLS]; 
+public:
+	//!Empty Constructor.
+	HASHCH(){
+	HashVec=NULL;
+	SizeHash=0;
+	 SizeList=0;
+	NumEl=0;
+	};
+	
+	//!Constructor. It takes in input the Hash table size.
+	HASHCH(const unsigned int sizeHash, const unsigned int sizeList){
+	this->SizeHash=sizeHash;
+	this->SizeList=sizeList;
+	NumEl=0;
+	HashVec=(HashNode**)malloc(SizeHash*sizeof(HashNode*));
+	for (unsigned int i=0;i<SizeHash;i++)
+			HashVec[i]=NULL;
+	ListCol=(HashNode*)malloc(SizeList*sizeof(HashNode));
+	memset(VCount,0, POOLS*sizeof(int) );
+	
+	};
+	//!It removes the allocated memory
+	~HASHCH(){
+	free(HashVec);
+	free(ListCol);
+	}
+	
+	//!It updates the hash size
+	void UpdateHash(const unsigned int& sizeHash,const unsigned int& sizeList){
+	this->SizeHash=sizeHash;
+	this->SizeList=sizeList;
+	HashVec=(HashNode**)malloc(SizeHash*sizeof(HashNode*));
+	for (unsigned int i=0;i<SizeHash;i++)
+			HashVec[i]=NULL;
+	ListCol=(HashNode*)malloc(SizeList*sizeof(HashNode));
+	memset(VCount,0, POOLS*sizeof(int) );
+	};
+
+	
+	//!Hash function. It takes in input a integer value.
+	inline unsigned int hash(const unsigned long long& value){
+	//return (H(value)) % SizeHash;
+	register unsigned  long long u=value;
+	register unsigned  long long v=value>>32;
+	return (((u*2+v)*A)%L)%SizeHash;
+	//return (value%L) % SizeHash;
+	};
+
+ 	//!It inserts the input value in the hash table, using chaining.  
+	inline void insert(mybitset& b,const unsigned int& pool){
+	unsigned int probe = hash(b.trans());
+	HashNode *tmpHashNode = HashVec[probe];
+	HashVec[probe] = ListCol+NumEl;
+        HashVec[probe]->b = b;
+        HashVec[probe]->next = tmpHashNode;
+	NumEl++;
+	if (NumEl>SizeList)
+		{
+		cerr << "\n*****Error the number of elements ("<<NumEl <<")is bigger then list entries *****" << endl;
+		exit(EXIT_FAILURE);
+		}			
+	};
+	
+	//!It seach all the element in the current hash table in the input hash table. It returns a bitset of size POOLS. 
+	bitset <POOLS> search(HASHCH  & sh){
+	bitset <POOLS> p;
+#if CORRECTION
+	unsigned int fv[POOLS]={0};
+	unsigned int w=0;
+#endif
+	int count=0;
+	for (unsigned int i=0;i<SizeHash;i++)
+		{
+		HashNode *tmpHashNode = HashVec[i];
+    		while(tmpHashNode !=NULL)
+			{
+#if SEARCHNORMAL
+			int res= sh.search(tmpHashNode->b);
+#else
+			int res= sh.searchAndmove(tmpHashNode->b);
+#endif
+			//if (res==0)
+			if ((res!=TW1)&&(res!=TW2)&&(res!=TW3)&&(res!=TW4)&&(res!=TW5)&&(res!=TW6)&&(res!=TW7)&&(res!=TW8))
+				{
+				tmpHashNode->b.invert();
+#if SEARCHNORMAL
+				res=sh.search(tmpHashNode->b);
+#else
+				res=sh.searchAndmove(tmpHashNode->b);
+#endif									
+				}
+		
+			//if ((res<TWINDOW)&&(res>0))
+			if ((res==TW1)||(res==TW2)||(res==TW3)||(res==TW4)||(res==TW5)||(res==TW6)||(res==TW7)||(res==TW8))
+				{
+#if CORRECTION
+				tmpHashNode->b.unionPV(p,fv);
+				w++;
+#else
+				tmpHashNode->b.unionPV(p);
+#endif
+				if (p.count()>TREAD)
+					{
+					resetHT(i);
+					p.reset();
+					return p;
+					}
+				}
+        		tmpHashNode = tmpHashNode->next;
+    			}
+		HashVec[i]=NULL;
+		}
+#if CORRECTION
+	w=w*TCOR;
+	corr(p,fv,w);
+#endif
+	count=p.count();
+	if (count!=0)
+		VCount[count-1]++;
+	NumEl=0;
+    	return p;
+	};
+	
+	//!It resets the hash table from index position and sets NumEl to 0
+	inline void resetHT(unsigned int index){
+	NumEl=0;
+	for (unsigned i=index;i<SizeHash;i++)
+		HashVec[i]=NULL;
+	}
+
+	//!It searches  a value in the hash table  and if it is found then it copies in b the pool bitvector
+	inline int search(mybitset& b){
+	HashNode *tmpHashNode = HashVec[hash(b.trans())];
+    	while(tmpHashNode !=NULL)
+		{
+        	if(tmpHashNode->b==b) 
+			{
+			return tmpHashNode->b.copy(b);
+			}
+        	tmpHashNode = tmpHashNode->next;
+    		}
+    	return 0;
+	};
+
+	//!It searches  a value in the hash table and if it is found then it copies in b the pool bitvector
+	inline int searchAndmove(mybitset& b){
+	unsigned int probe=hash(b.trans());
+	if (HashVec[probe]==NULL)
+		return 0;
+	HashNode *tmpHashNode = HashVec[probe];
+	if(tmpHashNode->b==b) 
+			{
+			return tmpHashNode->b.copy(b);
+			}
+    	while(tmpHashNode->next !=NULL)
+		{
+        	if(tmpHashNode->next->b==b) 
+			{
+			HashNode *tmp=tmpHashNode->next;
+			tmpHashNode->next=tmpHashNode->next->next;
+			tmp->next= HashVec[probe];
+			HashVec[probe]=tmp;
+			return tmp->b.copy(b);
+			}
+        	tmpHashNode = tmpHashNode->next;
+    		}
+    	return 0;
+	};
+	//!It searches  a value in the hash table and if it is found then it updates the pool bitvector.
+	bool searchAndmoveSetPool(mybitset& b,const int pool){
+	unsigned int probe=hash(b.trans());
+	if (HashVec[probe]==NULL)
+		return false;
+	HashNode *tmpHashNode = HashVec[probe];
+	if(tmpHashNode->b==b) 
+			{
+			tmpHashNode->b.setVP(pool);
+			return true;
+			}
+    	while(tmpHashNode->next !=NULL)
+		{
+        	if(tmpHashNode->next->b==b) 
+			{
+			HashNode *tmp=tmpHashNode->next;
+			tmpHashNode->next=tmpHashNode->next->next;
+			tmp->next= HashVec[probe];
+			HashVec[probe]=tmp;
+			tmp->b.setVP(pool);
+			return true;
+			}
+        	tmpHashNode = tmpHashNode->next;
+    		}
+    	return false;
+	};
+
+	//!It searches  a value in the hash table if it is found then it updates the pool
+	inline bool searchSetPool(mybitset& b,const int pool){
+	HashNode *tmpHashNode = HashVec[hash(b.trans())];
+    	while(tmpHashNode !=NULL)
+		{
+        	if(tmpHashNode->b==b) 
+			{
+			tmpHashNode->b.setVP(pool);
+			return true;
+			}
+        	tmpHashNode = tmpHashNode->next;
+    		}
+    	return false;
+	};
+
+	//!It prints the linked list stored in HashTable[row] in a file
+	void printList(int row,ofstream& out){
+	HashNode *tmpHashNode = HashVec[row];
+    	while(tmpHashNode!=NULL)
+		{
+		out<<tmpHashNode->b<<endl;
+        	tmpHashNode = tmpHashNode->next;
+    		}
+	};
+
+	//!It prints the linked list stored in HashTable[row]
+	void printList(int row){
+	HashNode *tmpHashNode = HashVec[row];
+	if (tmpHashNode!=NULL)
+		cout<<"\nHASH["<<row<<"]:\t"; 
+    	while(tmpHashNode!=NULL)
+		{
+		cout<<tmpHashNode->b<<" ";
+        	tmpHashNode = tmpHashNode->next;
+    		}
+	};
+
+	//!It prints the size of the linked list stored in HashTable[row]
+	void printSize(int row){
+	HashNode *tmpHashNode = HashVec[row];
+	int i=0;
+	if (tmpHashNode!=NULL)
+		cout<<"\nHASH["<<row<<"]:\t"; 
+    	while(tmpHashNode!=NULL)
+		{
+		i++;
+        	tmpHashNode = tmpHashNode->next;
+    		}
+	if (i>0)
+		cout<<i<<endl;
+	};
+
+	//!It prints the whole HashTable in a file 
+	void print(ofstream& out){
+	for(unsigned int i=0;i<SizeHash;i++)
+		{
+        	printList(i,out);
+		}
+	};
+
+	//!It prints the whole HashTable 
+	void print(){
+	for(unsigned int i=0;i<SizeHash;i++)
+		{
+#if DEBUG1
+        	printList(i);
+#endif
+		printSize(i);
+		}
+	cout<<endl;
+	};
+	//!It returns the HASH size
+	unsigned int size(){
+	return NumEl;
+	};
+	//!It prints some statistical information on the Hash Table
+	void info()
+	{
+	unsigned int hashentry=0;
+	for (unsigned int i=0;i<SizeHash;i++)
+		{
+		if (HashVec[i]!=NULL)
+			hashentry++;	
+		}
+	cout<<"Hash table buckets: "<<hashentry<<endl;
+	cout<<"Avergage size of collisions list: "<<(double)NumEl/hashentry<<endl;
+	}
+
+	//!It prints the counting vector according to the following format: <number_of_pools>' ' <number_of_reads> 
+	void PrintVCount(ofstream& out){
+	for(unsigned int i=0;i<POOLS;i++)
+		{
+        	out<<i+1<<" "<<VCount[i]<<endl;
+		}
+	};
+
+	//!It  uses the read pools frequency vector fv to derive the set of pools in which the read  is contained. In details, all the founded pools with frequency lower than the given threshold w are removed from p.
+	inline void corr(bitset<POOLS>& p, unsigned int fv[],unsigned int w)
+	{
+	for(unsigned int i=0;i<POOLS;i++)
+		{
+		if ((p[i]==1)&&(fv[i]<w))
+			{
+			p[i]=0;
+			}
+		}
+	}
+
+	void CountW(unsigned int WCount[]){
+	bitset <POOLS> p;
+	int j=0;
+	for(unsigned int i=0;i<NumEl;i++)
+		{
+		p.reset();
+		ListCol[i].unionPV(p);
+		if ((j=p.count())>0)
+			WCount[j-1]++;
+		}
+	};
+#if REPET
+// 	void CountR(unsigned int RCount[],unsigned int RCount1[]){
+// 	bitset <POOLS> p;
+// 	int j=0;
+// 	char buffer[MAXSIZE];
+// 	for(unsigned int i=0;i<NumEl;i++)
+// 		{
+// 		p.reset();
+// 		ListCol[i].unionPV(p);
+// 		if (((j=p.count())>0)&&(ListCol[i].getCW()>CUT))
+// 			{
+// 			RCount[j-1]+=ListCol[i].getCW();
+// 			RCount1[j-1]++;
+// 			}
+// 		if (j==8)
+// 			{
+// 			buffer[0]='\0';
+// 			ListCol[i].bit2buffer(buffer);
+// 			cout<<buffer<<endl;
+// 			}
+// 		}
+// 	};
+
+	void CountR(ofstream& out){
+ 	int j=0;
+ 	for(unsigned int i=0;i<NumEl;i++)
+ 		{ 		
+ 		j=ListCol[i].count;
+ 		if (j<=NUMC)
+ 			{
+			out<<ListCol[i];
+ 			for (int jj=0;jj<j;jj++)
+				{
+ 			 	out<<ListCol[i].getCW(jj)<<" ";
+				}
+			out<<endl<<endl;
+ 			}
+ 		}
+ 	};
+#endif
+
+};
+
+
+
+
+};
+
+

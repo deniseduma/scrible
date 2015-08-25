@@ -1,0 +1,1236 @@
+/***************************************************************************
+ *   Copyright (C) 2011 by Marco Beccuti   *
+ *   beccuti@di.unito.it   *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+
+#ifndef __CIO_H__
+	#define __CIO_H__
+	#include "classIO.h"
+#endif
+
+
+namespace IOFn
+{
+
+
+
+void IOF::Read(){
+
+using namespace general;
+
+clock_t startGlobal,endGlobal;
+
+char buffer[MAXSIZE];
+
+ifstream in;
+
+reads=0;
+
+char delimC[] = ".";
+Parser parser;
+parser.update(delimC,ReadFname);
+string fileExt="";
+if (parser.size()>1)
+	{
+	fileExt=parser.get(1);
+	}
+#if FILTERKMERS
+for (int f =0; f<F; f++) {
+	cout << "me[" <<  f << "] size is " << me[f]->size() << " and capacity " << me[f]->capacity() << endl;
+	cout << "others[" <<  f << "] size is " << others[f]->size() << " and capacity " << others[f]->capacity() << endl;
+	}
+#endif	
+for (int i=0;i<file;i++)
+{
+startGlobal=clock();
+ostringstream of;
+//of<<ReadFname<<i;
+
+#if FASTAEXFILE
+of<<parser.get(0)<<i<<"."<<fileExt;
+#else
+of<<parser.get(0)<<i<<"."<<fileExt;
+#endif
+
+in.open(of.str().c_str(),ofstream::in);
+if(!in) 
+	{
+	cerr << "\n*****Error opening input file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+int hh=0;
+int c1 = 0, c2 = 0, c3 = 0;
+while (!in.eof())
+	{
+	buffer[0]='\0';
+	in.getline(buffer,MAXSIZE);
+	int num=in.gcount();
+	if (buffer[num-1]!='\0')
+		{
+		buffer[num]='\0';
+		num++;
+		}
+	if ((num>=window+1)&&((buffer[0]=='A')||(buffer[0]=='G')||(buffer[0]=='C')||(buffer[0]=='T')||(buffer[0]=='N')))
+		{
+			hh++;
+#if FILTERKMERS
+			insertWithFiltering(buffer, num, i, c1, c2, c3);
+#else
+			insert(buffer,num,i);
+#endif			
+			if(reads%200000000==0)
+				{
+				cout<<"Reads: "<<reads<<" windows: "<<count<<" stored windows:  "<<sh.size()<<" rejected  windows: "<<disc<<endl;
+				//sh.print();
+				sh.info();
+				}	
+		}
+	}
+in.close();
+endGlobal=clock();
+cout<<"\n\n\tReads: "<<reads<<" windows: "<<count[i]<<" stored windows: "<<sh.size()<<".\n\tTime to read pool "<<i<<":"<<((double)(endGlobal-startGlobal))/CLOCKS_PER_SEC<<"s."<<endl;
+cout << "\t Total k-mers: " << c1 << " k-mers appearing in more than " << F << " pools: " << c2 << " repetitive k-mers " << c3 << endl << endl;;
+
+
+#if FILTERKMERS
+//after processing all reads for pool i copy all me hashtables to the others hashtable before continuing
+cout << "\n\tAfter processing pool " << i << endl;
+for (int f = 0; f < F; f++) {
+	cout << "me[" << f << "] has " << me[f]->size() << " elements" << endl; 
+	cout << "others[" << f << "] has " << others[f]->size() << " elements" << endl; 
+}	
+for (int f = 0; f < F; f++) {
+	unsigned int ms = me[f]->size();
+	unsigned int os = others[f]->size();
+	unsigned int oc = others[f]->capacity();
+	int diff = ms - (oc - os);
+	//resize others first if necessary
+	if ((diff > 0)) {
+		if (diff <= (1/3.0 * oc))
+			others[f]->resize(1/3.0 * oc, 1/3.0 * oc);
+		else
+			others[f]->resize(diff, diff);
+		cout << endl << "[Read]others[" << f <<"] resized up before adding me[" << f <<"]!" << endl;
+	}		
+	//move elements from me to others
+	others[f]->insert(*me[f]);
+	me[f]->resetHT(0);
+}
+cout << "\n\tAfter processing pool " << i << " and moving me to others " << endl;
+for (int f = 0; f < F; f++) {
+	cout << "me[" << f << "] has " << me[f]->size() << " elements" << endl; 
+	cout << "others[" << f << "] has " << others[f]->size() << " elements" << endl; 
+}	
+#endif
+
+}//end for each pool
+
+for (int i=0;i<POOLS;i++)
+	if (maxpools< count[i])
+		maxpools=count[i];
+
+#if FILTERKMERS
+//after processing all reads from all pools remove me and others hashtables 
+for (int f = 0; f < F; f++) {
+	delete others[f];
+	delete me[f];
+}
+#endif
+
+#if FILTERKMERS
+//resize down the hashtable if necessary
+if (sh.size() <= 0.7 * sh.capacity()) { 
+	cout << "[Read]sh resized down! " << endl;
+	sh.resize(-(sh.capacity() - sh.size()), -(sh.capacity() - sh.size()));
+}
+#endif
+
+}
+
+
+void IOF::Write(){
+ofstream pFile;
+
+time_t time_1,time_4;
+
+
+time(&time_1);
+
+
+pFile.open(OFname.c_str(),ofstream::out);
+if (!pFile)
+	{
+	cerr << "\n*****Error opening ouput file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+
+//set<class mybitset>::iterator iter=sh.begin();
+pFile<<"W:"<<window<<" |W|:"<<sh.size()<<" R:"<<reads<<endl;
+pFile.close();
+time(&time_4);
+cout<<"Time to format input REFERENCE: "<<(time_4-time_1)<<endl;
+}
+
+
+
+
+
+
+				
+void IOF::insert(const char buffer[],const int& num,const int& pool){
+reads++;
+class mybitset b,d;
+for(int k=0; k<=num-(window)-1; k++)
+	{
+	int z=0;
+	int j=DIM*2-1;
+	bool findN=false;
+	for (int c = 0; c<window; c++) 
+		{
+              	switch (buffer[c+k])
+			{
+			case 'A':
+				b.set(z,0);
+				z++;
+				b.set(z,0);
+				z++;
+				d.set(j,1);
+				j--;
+				d.set(j,1);
+				j--;
+			break;
+			case 'C':
+				b.set(z,0);
+				z++;
+				b.set(z,1);
+				z++;
+				d.set(j,0);
+				j--;
+				d.set(j,1);
+				j--;
+			break;
+			case 'G':
+				b.set(z,1);
+				z++;
+				b.set(z,0);
+				z++;
+				d.set(j,1);
+				j--;
+				d.set(j,0);
+				j--;
+			break;
+			case 'T':
+				b.set(z,1);
+				z++;
+				b.set(z,1);
+				z++;
+				d.set(j,0);
+				j--;
+				d.set(j,0);
+				j--;
+			break;
+			default:
+				findN=true;
+				c=window;
+			}
+		}
+	if (!findN)
+		{
+		count[pool]++;
+		//cout<<b<<"\n"<<d<<endl<<endl;
+		if (d<b)
+			{
+#if SEARCHNORMAL
+			if (!sh.searchSetPool(d,pool))
+#else
+			if (!sh.searchAndmoveSetPool(d,pool))
+#endif
+				{
+				d.setVP(pool);	
+				sh.insert(d);
+				}
+			}
+		else
+			{
+#if SEARCHNORMAL
+			if (!sh.searchSetPool(b,pool))
+#else
+			if (!sh.searchAndmoveSetPool(b,pool))
+#endif
+				{
+				b.setVP(pool);	
+				sh.insert(b);
+				}
+			}			
+		}
+	else
+		disc++;
+	}
+}
+
+
+void IOF::insertWithFiltering(const char buffer[],const int& num,const int& pool, int& c1, int& c2, int& c3){
+#if FILTERKMERS
+reads++;
+bool found;
+int f;
+class mybitset b,d;
+for(int k=0; k<=num-(window)-1; k++)
+	{
+	int z=0;
+	int j=DIM*2-1;
+	bool findN=false;
+	for (int c = 0; c<window; c++) 
+		{
+              	switch (buffer[c+k])
+			{
+			case 'A':
+				b.set(z,0);
+				z++;
+				b.set(z,0);
+				z++;
+				d.set(j,1);
+				j--;
+				d.set(j,1);
+				j--;
+			break;
+			case 'C':
+				b.set(z,0);
+				z++;
+				b.set(z,1);
+				z++;
+				d.set(j,0);
+				j--;
+				d.set(j,1);
+				j--;
+			break;
+			case 'G':
+				b.set(z,1);
+				z++;
+				b.set(z,0);
+				z++;
+				d.set(j,1);
+				j--;
+				d.set(j,0);
+				j--;
+			break;
+			case 'T':
+				b.set(z,1);
+				z++;
+				b.set(z,1);
+				z++;
+				d.set(j,0);
+				j--;
+				d.set(j,0);
+				j--;
+			break;
+			default:
+				findN=true;
+				c=window;
+			}
+		}
+	if (!findN)
+	{
+		count[pool]++;
+		//cout<<b<<"\n"<<d<<endl<<endl;
+		f = F - 1;
+		found = false;
+		c1++;
+		if (d<b)
+		{
+			if (sh.searchSetPool(d, pool))
+			{ 
+				//if the k-mer is found in keep do nothing 
+				//cout << "pool " << pool << ": " << d << " already in keep!" << endl;
+				found = true; 
+			} 
+			while ((!found) && (f >= 0)) {
+				
+				if (others[f]->searchSetPool(d, pool))
+				{
+					//cout << "pool " << pool << ": " << d << " in others[" << f << "]" << endl;
+					found = true;
+					others[f]->removeCopy(d);
+					/*if (others[f]->size() <= 0.6 * others[f]->capacity()) { 
+						cout << endl << "[insertWithFiltering(d)]others[" << f <<"] resized down! " << endl;
+						others[f]->resize(-(others[f]->capacity() - others[f]->size()), -(others[f]->capacity() - others[f]->size()));
+					}*/
+					
+					if (f == (F - 1)) {//move the k-mer to keep 
+						if (sh.size() == sh.capacity()) { 
+							cout << "sh resized up! " << endl;
+							sh.resize(1/3.0 * sh.capacity(), 1/3.0 * sh.capacity());
+							}
+						c2++;
+						sh.insert(d);
+					}	
+					else { //move the k-mer from others[f] to me[f+1]
+						if (me[f+1]->size() == me[f+1]->capacity()) { 
+							cout << "me[" << (f+1) <<"] resized up! " << endl;
+							me[f+1]->resize(1/3.0 * me[f+1]->capacity(), 1/3.0 *me[f+1]->capacity());
+							}
+						me[f+1]->insert(d);
+					}
+				} else if (me[f]->searchSetPool(d, pool))
+				{ 
+					//cout << "pool " << pool << ": "<< d << " in me[" << f << "]" << endl;
+					//if the k-mer is found in me do nothing 
+					found = true; 
+				}
+			
+				f--;
+
+			} //end while ((!found) && (f >= 0))
+
+			if (found == false) {
+				if (me[0]->size() == me[0]->capacity()) {
+					cout << "me[" << 0 <<"] resized up! " << endl;
+					me[0]->resize(1/3.0 * me[0]->capacity(), 1/3.0 * me[0]->capacity());
+				}	
+				d.setVP(pool);
+				me[0]->insert(d);
+			} else {
+				c3++;
+			}
+		}
+		else
+		{
+		
+			if (sh.searchSetPool(b, pool))
+			{ 
+				//cout << "pool " << pool << ": " << b << " already in keep!" << endl;
+				found = true; 
+			} 
+			while ((!found) && (f >= 0)) {
+			
+				if (others[f]->searchSetPool(b, pool))
+				{
+					//cout << "pool " << pool << ": " << b << " in others[" << f << "]" << endl;
+					found = true;
+					others[f]->removeCopy(b);
+					/*if (others[f]->size() <= 0.6 * others[f]->capacity()) { 
+						cout << endl << "[insertWithFiltering(b)]others[" << f <<"] resized down! " << endl;
+						others[f]->resize(-(others[f]->capacity() - others[f]->size()), -(others[f]->capacity() - others[f]->size()));
+					}*/
+					
+				 	if (f == (F-1)) { //move the k-mer to keep 
+						if (sh.size() == sh.capacity()) { 
+							cout << "sh resized up! " << endl;
+							sh.resize(1/3.0 * sh.capacity(), 1/3.0 * sh.capacity());
+							}
+						c2++;
+						sh.insert(b);
+					}	
+					else { //move the k-mer from others[f] to me[f+1]
+						if (me[f+1]->size() == me[f+1]->capacity()) { 
+							cout << "me[" << (f+1) <<"] resized up! " << endl;
+							me[f+1]->resize(1/3.0 * me[f+1]->capacity(), 1/3.0 * me[f+1]->capacity());
+							}
+						me[f+1]->insert(b);
+					}	
+				} else if (me[f]->searchSetPool(b, pool))
+				{ 
+					//cout << "pool " << pool << ": " << b << " in me[" << f << "]" << endl;
+					found = true; 
+				}
+			
+				f--;
+
+		}//end while (!found)
+
+			if (found == false) { 
+				if (me[0]->size() == me[0]->capacity()) {
+					cout << "me[" << 0 <<"] resized up! " << endl;
+					me[0]->resize(1/3.0 * me[0]->capacity(), 1/3.0 * me[0]->capacity());
+				}	
+				b.setVP(pool);
+				me[0]->insert(b);
+			} else {
+				c3++;
+			}
+		}	
+	}
+	else
+		disc++;
+	}	
+	
+#endif
+}
+
+
+inline void IOF::convertN(char tmp[], const int& num)
+{
+char inv[MAXSIZE];
+string kk;
+for (int i=0;i<num;i++)
+		{
+		switch (tmp[i])
+			{
+			case 'A':
+				inv[num-i-2]='T';
+				kk+='T';
+			break;
+			case 'C':
+				inv[num-i-2]='G';
+				kk+='G';
+			break;
+			case 'G':
+				inv[num-i-2]='C';
+				kk+='C';
+			break;
+			case 'T':  
+				inv[num-i-2]='A';
+				kk+='A';
+			break;
+			case '\0':
+ 				inv[num-1]='\0';
+			break;
+			default:
+				inv[num-i-2]='N';	
+			}
+		}
+strcpy(tmp,inv);
+}
+
+
+void IOF::Average(vector<class OPERATOR>::iterator it,int i){
+
+ostringstream of;
+of<<OFname<<i;
+ofstream out(of.str().c_str(),ofstream::out);
+if (!out)
+	{
+	cerr << "\n*****Error opening ouput file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+
+sh.Average(out,it,count);
+
+// #if REPET
+// //sh.CountR(out,count);
+// sh.Corretion(out,count);
+// #endif
+cout<<"\t Output  operation "<<i<<" save in "<<of.str().c_str()<<endl;
+out.close();
+}
+
+void IOF::Count(int i){
+ostringstream of;
+of<<OFname<<i;
+ofstream out(of.str().c_str(),ofstream::out);
+if (!out)
+	{
+	cerr << "\n*****Error opening ouput file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+
+sh.Count(out);
+cout<<"\t Output  operation "<<i<<" save in "<<of.str().c_str()<<endl;
+out.close();
+}
+
+void IOF::Correction(vector<class OPERATOR>::iterator it,int i){
+
+ostringstream of;
+of<<OFname<<i;
+ofstream out(of.str().c_str(),ofstream::out);
+if (!out)
+	{
+	cerr << "\n*****Error opening ouput file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+
+sh.Correction(out,it,count);
+
+// #if REPET
+// //sh.CountR(out,count);
+// sh.Corretion(out,count);
+// #endif
+cout<<"\t Output  operation "<<i<<" save in "<<of.str().c_str()<<endl;
+out.close();
+}
+
+void IOF::Search(int l,int u){
+
+using namespace general;
+
+HASHCH<mybitset> rd;
+rd.UpdateHash(READSIZE-window,READSIZE-window);
+
+char buffer[MAXSIZE],name[MAXSIZE],name2[MAXSIZE];
+
+ifstream in;
+ofstream out;
+
+reads=0;
+
+int num=0;
+clock_t startGlobal,endGlobal;
+mybitsetBAC p1,p2;
+
+char delimC[] = ".";
+Parser parser;
+parser.update(delimC,ReadFname);
+string fileExt="";
+if (parser.size()>1)
+	{
+	fileExt=parser.get(1);
+	}
+for (int i=l;i<=u;i++)
+{
+startGlobal=clock();
+ostringstream of,of1;
+
+
+
+
+#if FASTAEXFILE
+of<<parser.get(0)<<i<<"."<<fileExt;
+#else
+of<<parser.get(0)<<i<<"."<<fileExt;
+#endif
+//#pragma omp parallel
+//{
+//int i = omp_get_thread_num();
+cout << "[Search] " << fileExt << " in file " << of.str() << endl;
+//}
+
+in.open(of.str().c_str(),ofstream::in);
+if(!in) 
+	{
+	cerr << "\n*****Error opening input file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+of1<<OFname<<i;
+out.open(of1.str().c_str(),ofstream::out);
+if (!out)
+	{
+	cerr << "\n*****Error opening ouput file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+
+int dec=0;
+int pdec=0;
+unsigned short BAC3;
+
+#if CORRECTIONREAD
+unsigned short BAC[MAXOVERLAP];
+unsigned int notcor=0,rep=0,highrep=0,totcorr=0;
+#endif
+while (!in.eof())
+	{
+	buffer[0]='\0';
+	in.getline(buffer,MAXSIZE);
+	num=in.gcount();
+	if (buffer[num-1]!='\0')
+		{
+		buffer[num]='\0';
+		num++;
+		}
+	if ((num>=window+1)&&((buffer[0]=='A')||(buffer[0]=='G')||(buffer[0]=='C')||(buffer[0]=='T')||(buffer[0]=='N')))
+		{
+			p1=search(rd,buffer,num,out,BAC3);
+#if CORRECTIONREAD
+				BAC[0]=p1.get(0);
+				BAC[1]=p1.get(1);
+				BAC[2]=BAC3;
+				if (BAC[0]!=MAXSHORT) //only if we are able to decov...
+					correction(rd,buffer,num,out,BAC,notcor,rep,highrep,totcorr,name);
+#else
+	#if OUTPUTPOOLSDEC
+			out<<name<<"\n";
+			out<<buffer<<"\n";
+	#else
+		#if  OUTPUTPOOLS
+			out<<name<<":$";
+		#endif
+	#endif
+
+	#if OUTPUTPOOLSDEC ||  OUTPUTPOOLS
+			int i=printBitset(p1,out,BAC3);
+			if (i==2)
+				{
+				dec++;
+				}
+			if (i==1)
+				{
+				pdec++;
+				}
+	#endif
+#endif
+			buffer[0]='\0';
+			in.getline(buffer,MAXSIZE);
+//fasta-->non bello forse conviene fare un preparser
+			strcpy(name2,buffer);
+			
+			in.getline(buffer,MAXSIZE);
+//fasta-->non bello forse conviene fare un preparser
+			num=in.gcount();
+			if ((num>=window+1)&&((buffer[0]=='A')||(buffer[0]=='G')||(buffer[0]=='C')||(buffer[0]=='T')||(buffer[0]=='N')))
+				{
+				p2=search(rd,buffer,num,out,BAC3);
+#if CORRECTIONREAD
+				BAC[0]=p2.get(0);
+				BAC[1]=p2.get(1);
+				BAC[2]=BAC3;
+				if (BAC[0]!=MAXSHORT)//only if we are able to decov...
+					correction(rd,buffer,num,out,BAC,notcor,rep,highrep,totcorr,name2);
+#else
+
+	#if OUTPUTPOOLSDEC
+				out<<name2<<"\n";
+				out<<buffer<<"\n";
+	#else
+		#if  OUTPUTPOOLS	
+				 out<<name2<<":$";
+		#endif
+	#endif
+	#if OUTPUTPOOLSDEC ||  OUTPUTPOOLS
+				int i=printBitset(p2,out,BAC3);
+				if (i==2)
+					{
+					dec++;
+					}
+				if (i==1)
+					{
+					pdec++;
+					}
+	#endif
+#endif
+				}
+#if OUTPUTPOOLSPAIR
+			checkPools(p1,p2,name,out);
+#endif
+			if(reads%1000000==0)
+				{
+				cout<<"Reads "<<reads<<endl;
+				//sh.print();
+				}	
+		}
+	else
+		if ((num>0)&&((buffer[0]=='@')||(buffer[0]=='>')))
+			{
+			strcpy(name,buffer);
+			p1.clear();
+			p2.clear();
+			}	
+	}
+
+in.close();
+#if COUNTING
+rd.PrintVCount(out);
+#endif
+out.close();
+endGlobal=clock();
+cout<<"\n\n\tDeconvoluted reads: "<<dec<<" not deconvoluted reads: "<<pdec<<"\n";
+#if CORRECTIONREAD
+cout<<"Number of read with all the k-mers corrected: "<<totcorr<<endl;
+cout<<"In deconvoluted reads"<<endl;
+cout<<"\tNot corrected k-mers: "<<notcor<<" High repetitive k-mers:"<<highrep << " lower bound of repaired k-mers: "<<rep<<"\n";
+totcorr=notcor=rep=0;
+#endif
+cout<<"\n\tTime to search overlappings in "<<i<<": "<<((double)(endGlobal-startGlobal))/CLOCKS_PER_SEC<<"s."<<endl<<endl;
+}
+}
+
+mybitsetBAC  IOF::search(class HASHCH<mybitset>& rd,const char buffer[],const int& num,ofstream& out,unsigned short& BAC3 )
+{
+reads++;
+mybitsetBAC p;
+class mybitset b,d;
+for(int k=0; k<=num-(window)-1; k++)
+	{
+	int z=0;
+	int j=DIM*2-1;
+	bool findN=false;
+	for (int c = 0; c<window; c++) 
+		{
+              	switch (buffer[c+k])
+			{
+			case 'A':
+				b.set(z,0);
+				z++;
+				b.set(z,0);
+				z++;
+				d.set(j,1);
+				j--;
+				d.set(j,1);
+				j--;
+			break;
+			case 'C':
+				b.set(z,0);
+				z++;
+				b.set(z,1);
+				z++;
+				d.set(j,0);
+				j--;
+				d.set(j,1);
+				j--;
+			break;
+			case 'G':
+				b.set(z,1);
+				z++;
+				b.set(z,0);
+				z++;
+				d.set(j,1);
+				j--;
+				d.set(j,0);
+				j--;
+			break;
+			case 'T':
+				b.set(z,1);
+				z++;
+				b.set(z,1);
+				z++;
+				d.set(j,0);
+				j--;
+				d.set(j,0);
+				j--;
+			break;
+			default:
+				findN=true;
+				c=window;
+			}
+		}
+	if (!findN)
+		{
+		z=0;	
+		if (d<b)
+			{
+			rd.insert(d);
+			}
+		else
+			{
+			rd.insert(b);
+			}
+		}
+	}
+	if (rd.size()!=0)
+ 		p=rd.search(sh,shBAC,BACTable,count,maxpools,BAC3);
+#if OUTPUT
+	out<<p<<endl;
+#endif
+return p;
+}
+
+#if CORRECTIONREAD
+void  IOF::correction(class HASHCH<mybitset>& rd, char buffer[],const int& num,ofstream& out,unsigned short BAC[MAXOVERLAP], unsigned int& notcor, unsigned int& rep,unsigned int& highrep,unsigned int& totcorr,char name[])
+{
+class mybitset b,d;
+char before[MAXSIZE];
+char after[MAXSIZE];
+for (int i=0;i<num-(window);i++)
+	{
+	before[i]=after[i]='E';
+	}
+
+before[num-(window)]=after[num-(window)]='\0';
+bool noCorrKmer=true;
+bool correction=true;
+bool first=true;
+
+unsigned int notcorl=0,repl=0,highrepl=0;
+int cycle=0;
+while(correction)
+	{
+	cycle++;
+	highrepl=repl=notcorl=0;
+	correction=false;
+	noCorrKmer=true;
+for(int k=0; k<=num-(window)-1; k++)
+	{
+	int z=0;
+	int j=DIM*2-1;
+	bool findN=false;
+	for (int c = 0; c<window; c++) 
+		{
+              	switch (buffer[c+k])
+			{
+			case 'A':
+				b.set(z,0);
+				z++;
+				b.set(z,0);
+				z++;
+				d.set(j,1);
+				j--;
+				d.set(j,1);
+				j--;
+			break;
+			case 'C':
+				b.set(z,0);
+				z++;
+				b.set(z,1);
+				z++;
+				d.set(j,0);
+				j--;
+				d.set(j,1);
+				j--;
+			break;
+			case 'G':
+				b.set(z,1);
+				z++;
+				b.set(z,0);
+				z++;
+				d.set(j,1);
+				j--;
+				d.set(j,0);
+				j--;
+			break;
+			case 'T':
+				b.set(z,1);
+				z++;
+				b.set(z,1);
+				z++;
+				d.set(j,0);
+				j--;
+				d.set(j,0);
+				j--;
+			break;
+			default:
+				findN=true;
+				c=window;
+			}
+		}
+	if (!findN)
+		{
+		z=0;
+		char *pt=buffer+k;
+		char *bpt=before+k;
+		char *apt=after+k;
+		if (d<b)
+			{
+			if (rd.search(sh,BACTable,d,true,pt,BAC,bpt,apt,notcorl,repl,highrepl,noCorrKmer,first))
+				{correction=true;
+				//cout<<"\t"<<name<<endl<<before<<endl<<after<<endl;
+				}
+			}
+		else
+			{
+			if (rd.search(sh,BACTable,b,false,pt,BAC,bpt,apt,notcorl,repl,highrepl,noCorrKmer,first))
+				{
+				correction=true; 
+				//cout<<"\t"<<name<<endl<<before<<endl<<after<<endl;
+				}
+			}
+		//cout<<"\t"<<name<<endl<<before<<endl<<after<<endl;
+		}
+	}
+	first=false;
+}
+//notcor+=notcorl;
+//highrep+=highrepl;
+//rep+=repl;
+int k=0;
+bool TotCor=true;
+//cout<<name<<endl<<before<<endl<<after<<endl;
+while ((before[k]!='\0')&&(before[k]==after[k])&&(k<MAXSIZE))
+	{
+	if (before[k]!='C')
+		TotCor=false;
+	k++;
+	}
+if (TotCor)
+	totcorr++;
+else
+	if ((before[k]!='\0'))
+		out<<name<<"-"<<cycle<<endl<<before<<endl<<after<<endl;
+for (int i=0;i<num-window;i++){
+	if (before[i]=='E')
+		notcor++;
+	else
+		 if (before[i]=='A')
+			highrep++;
+	if ((after[i]=='R')||(after[i]=='r'))
+		rep++;
+	}
+}
+
+#endif
+
+#if OUTPUTXDENISE
+
+int printBitset(mybitsetBAC& I,ofstream& out,unsigned short BAC3)
+{
+int dec=0;
+
+for (int i=0;i<POOLS;i++)
+ 	{
+ 	if (I.getVP(i)==1)
+		{
+ 		out<<" "<<i;
+		dec=1;
+		}
+ 	}
+out<<endl;
+if (I.get(0)!=MAXSHORT)
+	{
+	dec=2;
+	}
+return dec;
+}
+#else 
+int printBitset(mybitsetBAC& I,ofstream& out,unsigned short BAC3)
+{
+ int dec=0;
+
+ for (int i=0;i<POOLS;i++)
+ 	{
+ 	if (I.getVP(i)==1)
+		{
+#if !OUTPUTPOOLSDEC	
+ 		out<<" "<<i;
+#endif
+		dec=1;
+		}
+ 	}
+
+
+ if (I.get(0)!=MAXSHORT)
+	{
+#if OUTPUTPOOLSDEC
+	out<<I.get(0);
+#else
+	out<<"#"<<I.get(0);
+#endif
+	dec=2;
+	}
+else	
+	{
+#if OUTPUTPOOLSDEC
+	out<<"-1";
+#else
+	 out<<"#-1";
+#endif
+	}
+ if (I.get(1)!=MAXSHORT)
+	{
+#if OUTPUTPOOLSDEC
+	out<<" "<<I.get(1);
+#else
+	out<<"#"<<I.get(1);
+#endif
+	dec=2;
+	}
+else
+	{
+#if OUTPUTPOOLSDEC
+	out<<" -1";
+#else
+	out<<"#-1";
+#endif
+	}
+
+if (BAC3!=MAXSHORT)
+	{
+#if OUTPUTPOOLSDEC
+	out<<" "<<BAC3;
+#else
+	out<<"#"<<BAC3;
+#endif
+	dec=2;
+	}
+else
+	{
+#if OUTPUTPOOLSDEC
+	out<<" -1";
+#else
+	out<<"#-1";
+#endif
+	}
+out<<endl;
+
+
+#if OUTPUTPOOLSDEC
+if ((dec==1)||(dec==0))
+	{
+ 	for (int i=0;i<POOLS;i++)
+ 		{
+ 		if (I.getVP(i)==1)
+			{
+ 			out<<" "<<i;
+			}
+		}
+	out<<endl;
+ 	}
+#endif
+return dec;
+}
+#endif
+
+#if OVERLAPPING3
+//Insert BAC MAPPING in the BAC TABLE
+void IOF::INITBACTable()
+{
+using namespace general;
+
+char delimC[] = "\t,";
+int  PoolsBac[BACS][8];
+Parser parser;
+ifstream in;
+
+in.open(BACFname.c_str(),ofstream::in);
+if(!in) 
+	{
+	cerr << "\n*****Error opening BAC input file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+char buffer[MAXSIZE];
+int j=0;
+while (!in.eof())
+	{
+	buffer[0]='\0';
+	in.getline(buffer,MAXSIZE);
+	if (buffer[0]!='\0')
+		{
+		int num=in.gcount();
+		if (buffer[num-1]!='\0')
+			{
+			buffer[num]='\0';
+			}
+		parser.update(delimC,buffer);	
+		for (unsigned int i=0; i< parser.size(); i++ ) 
+			{
+               		PoolsBac[j][i]=(atoi (parser.get(i).c_str()))-1;
+			}
+
+		for (unsigned int i=1; i<8; i++ ) 
+			{
+			BACTable[j].set(PoolsBac[j][i],1);
+			}
+		j++;
+		}
+	}
+in.close();
+}
+//Insert BAC MAPPING in the BAC TABLE
+#endif 
+
+void IOF::ReadBac(){
+
+using namespace general;
+
+char delimC[] = "\t,";
+int  PoolsBac[BACS][8];
+Parser parser;
+ifstream in;
+
+in.open(BACFname.c_str(),ofstream::in);
+if(!in) 
+	{
+	cerr << "\n*****Error opening BAC input file *****" << endl;
+	exit(EXIT_FAILURE);
+	}
+char buffer[MAXSIZE];
+int j=0;
+while (!in.eof())
+	{
+	buffer[0]='\0';
+	in.getline(buffer,MAXSIZE);
+	if (buffer[0]!='\0')
+		{
+		int num=in.gcount();
+		if (buffer[num-1]!='\0')
+			{
+			buffer[num]='\0';
+			}
+		parser.update(delimC,buffer);	
+		for (unsigned int i=0; i< parser.size(); i++ ) 
+			{
+               	 PoolsBac[j][i]=(atoi (parser.get(i).c_str()))-1;
+			}
+#if OVERLAPPING3
+//Insert BAC MAPPING in the BAC TABLE
+		for (unsigned int i=1; i<8; i++ ) 
+			{
+			//cout<<PoolsBac[j][i]<<endl;
+			BACTable[j].set(PoolsBac[j][i],1);
+			}
+//Insert BAC MAPPING in the BAC TABLE
+		j++;
+		
+#endif
+		}
+
+#if DEBUGBAC
+	
+	/*for (unsigned int j=0; j<BACS; j++ ) 
+		{
+		for (unsigned int i=0; i<8; i++ ) 
+			{
+                	cout<<PoolsBac[j][i]<<" ";
+			}
+		cout<<"\n";
+#if OVERLAPPING3
+		cout<<"BAC "<<j<<": "
+		for (unsigned int i=0; i<DIM; i++ ) 
+			{
+			if (BACTable[j][i]==1)
+                		cout<<i<<" ";
+			}
+#endif
+		}*/
+#endif
+	}
+in.close();
+for (unsigned int j=0; j<BACS; j++ ) 
+		{
+		mybitsetBAC p;
+		p.set(PoolsBac[j][0],0);//set BAC ID 
+		for (unsigned int i=1; i<8; i++ ) 
+			{
+                	p.setVP(PoolsBac[j][i]);
+			}
+/*7 pools*/		if (shBAC.search(p)==0)
+				shBAC.insert(p);
+		for (unsigned int i=1; i<8; i++ ) 
+			{
+                	p.resetVP(PoolsBac[j][i]);
+/*6 pools*/		if (shBAC.search(p)==0)
+				shBAC.insert(p);
+			p.setVP(PoolsBac[j][i]);
+			}
+		for (unsigned int k=j+1; k<BACS; k++ ) 
+			{
+			mybitsetBAC b(p);
+			b.set(PoolsBac[k][0],1);
+			for (unsigned int i=1; i<8; i++ ) 
+				{
+                		b.setVP(PoolsBac[k][i]);
+				}
+/*14 13 12 pools*/	if (shBAC.search(b)==0)
+				shBAC.insert(b);
+			for (unsigned int i=0; i<POOLS; i++ ) 
+				{
+				if (b.getVP(i)==1)
+					{
+					b.resetVP(i);
+/*13 12 pools*/				if (shBAC.search(b)==0)
+						shBAC.insert(b);
+					b.setVP(i);
+					}
+				}
+	
+			}
+		}
+
+cout<<shBAC.size()<<endl;
+}
+
+
+}
+

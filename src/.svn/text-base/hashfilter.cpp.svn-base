@@ -1,0 +1,273 @@
+/***************************************************************************
+ *   Copyright (C) 2011 by Marco Beccuti   *
+ *   beccuti@di.unito.it   *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+
+
+#ifndef CIO_H_
+	#define CIO_H
+	#include "classIO.h"
+#endif
+
+
+#if HASHINT
+	#ifndef HASH_H_
+		#define HASH_H_
+		#include "hashChainingInt.h"
+	#endif
+	#ifndef __CMB_H__
+		#define __CMB_H__
+		#include "classMybitsetChar.h"
+	#endif
+#else
+	#ifndef HASH_H_
+		#define HASH_H_
+		#include "hashChaining.h"
+	#endif
+	#ifndef __CMB_H__
+		#define __CMB_H__
+		#include "classMybitset.h"
+	#endif
+#endif
+
+#ifndef THR_H_
+	#define THR_H_
+	#include <pthread.h>
+#endif
+
+#ifndef __OPER_H__
+	#define __OPER_H__
+	#include "operation.h"
+#endif
+
+
+#ifndef __VCT_H__
+	#define __VCT_H__
+	#include <vector>
+#endif
+
+#if ((COUNTW || REPET)&&(ANALYSIS))
+	#ifndef __PRS_H__
+		#define __PRS_H__
+		#include "parserYacc.h"
+	#endif
+#endif
+
+#include <sys/time.h>
+#include <sys/resource.h>
+
+#ifndef __CON_H__
+	#define __CON_H__
+	#include "const.h"
+#endif
+
+using namespace IOFn;
+using namespace Cl_HASH;
+
+class IOF* p_ref; 
+
+struct thread_data* td_array;
+
+char c[8]={ 0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80};
+char r[8]={ 0xFE, 0xFD, 0xFB, 0xF7, 0xEF, 0xDF, 0xBF, 0x7F};
+
+#if ANALYSIS
+using namespace OPER;
+extern int initParser(string filenamem,vector <class OPERATOR>& );
+#endif
+
+int main(int argc, char *argv[])
+{
+clock_t startGlobal,endGlobal;
+startGlobal=clock();
+
+cout<<"\n\n =========================================================\n";
+cout<<"|	      	        HASHFILTER        	          |\n";
+cout<<"|	      	   FILTER OVERLAPPINGS     	          |\n";
+cout<<" =========================================================\n";
+cout<<"\n If you find any bug, send an email to beccuti@di.unito.it\n";
+
+
+if (argc!=9)
+	{
+	std::cerr<<"\n\nUSE: hashfilter <path/ReadFile> <path/MapPoolsToBacsFile> <path/OutputFile> <k-mer_size> <input_file_number> <thread> <hash_size> <collision_list_size>\n\n";
+		exit(EXIT_FAILURE);
+	}
+
+
+unsigned int qgram=atoi(argv[4]);
+
+if (qgram != DIM)
+	{
+	cout<<"Error: the size of constant DIM (const.h)  is different by the window size"<<endl;
+	}
+unsigned int cores=atoi(argv[6]); 
+unsigned int files=atoi(argv[5]); 
+unsigned int hash=atoi(argv[7]);
+unsigned int list=atoi(argv[8]);
+
+
+
+cout<<"\n\n___________________________________________________________\n\n\t\t\tInput parameters \n___________________________________________________________\n\n";
+cout<<"\tWindow's size: "<<qgram<<"\n";
+cout<<"\tInput files: "<<files;
+if (FASTAEXFILE)
+cout<<" with file extension \".fasta\"\n";
+else
+cout<<" with file extension \".txt\"\n";
+cout<<"\tThread numbers for mapping: "<<cores<<"\n";
+cout<<"\tHash table entries: "<<hash<<"\n";
+cout<<"\tList collision size: "<<list<<"\n";
+cout<<"\tCorrection threshold: "<<TCOR<<"\n";
+#if HASHINT
+cout<<"\tHash table pointer: INT"<<endl;
+cout<<"\tPools vectors: char vector"<<endl;
+#else
+cout<<"\tHash table pointer: POINTER"<<endl;
+cout<<"\tPools vectors: bitset"<<endl;
+#endif
+cout<<"\tPool frequencies vector size: "<<NUMC<<", with MAX FREQ: "<<MAXFREQ<<endl;
+cout<<"___________________________________________________________\n";
+
+//cout<<"\n\nSTART EXECUTION...\n"<<endl;
+
+
+cout<<"\n\nSTART FORMATTING...\n"<<endl;
+string ReadFname(argv[1]);
+string IOread=std::string(argv[3]);
+string PoolsToBac=std::string(argv[2]);
+int who = RUSAGE_SELF;  
+struct rusage usage;  
+/*int ret;  
+ret=getrusage(who,&usage); 
+cout<<"\n\n\tTotal memory used: "<<usage.ru_maxrss<<"KB"<<endl;*/
+class IOF ref(ReadFname,PoolsToBac,IOread,qgram,files, hash, list);
+startGlobal=clock();
+#if HASHINT
+bool storedhash=ref.ReadB();
+if (!storedhash)
+	{
+#endif
+	ref.AllocHash(hash,list);
+	ref.Read();
+	ref.ReadBac();
+	cout << "[main]The k-mer hashtable has " << ref.size() << " elements." << endl;
+#if HASHINT
+	}
+
+#endif
+getrusage(who,&usage); 
+cout<<"\n\n\tTotal memory used: "<<usage.ru_maxrss<<"KB"<<endl;
+cout<<"\n\nEND FORMATTING\n"<<endl;
+
+
+endGlobal=clock();
+cout<<"\n=========================== TIME ===========================\n\n";
+cout<<"\tTime to create HASH TABLE: "<<((double)(endGlobal-startGlobal))/CLOCKS_PER_SEC<<"s."<<endl;
+cout<<"\n============================================================\n\n";
+#if HASHINT
+if (!storedhash)
+	{
+	cout<<"\n---------------------- SAVE HASH TABLE ---------------------\n\n";
+	ref.WriteB();
+	cout<<"\n------------------------------------------------------------\n\n";
+	}
+#endif
+
+
+#if ((COUNTW || REPET)&&(ANALYSIS))
+cout<<"\n\nSTART WINDOWS POOLS FREQUENCIES\n"<<endl;
+using namespace OPER;
+vector <class OPERATOR> operations;
+initParser(ReadFname,operations);
+vector<class OPERATOR>::iterator it = operations.begin();
+int i=0;
+while (it!=operations.end())
+	{
+	if (it->type==AVERAGE)
+		{
+		ref.Average(it,i);
+		}
+	if (it->type==CORREC)
+		{
+		ref.Correction(it,i);
+		}
+	if (it->type==KMERCOUNT)
+		{
+		ref.Count(i);
+		}
+	it++;
+	i++;
+	}
+cout<<"\nEND WINDOWS POOLS FREQUENCIES\n"<<endl;
+exit(EXIT_SUCCESS);
+#endif
+
+
+time_t time1,time2;
+time1=time(NULL);
+startGlobal=clock();
+cout<<"\n\nSTART MAPPING...\n"<<endl;
+//Init threads
+p_ref=&ref;
+
+td_array = (thread_data*) malloc (cores*sizeof(thread_data));
+unsigned int last=0,dim=files/cores;
+if (cores>files)
+	{
+	cores=files;
+	cout<<"Reseting the cores used to "<<cores<<endl;
+	}
+
+omp_set_num_threads(cores);
+
+for (unsigned int i=0;i<cores;i++)
+	{
+	td_array[i].l=last;
+	td_array[i].u=last+dim-1;
+	if ((td_array[i].u>files-1)||(i==cores-1))
+		td_array[i].u=files-1;
+	else
+		last=last+dim;
+	cout<<"\t Thread "<<i<<" works on the pools from "<<td_array[i].l<<" to "<<td_array[i].u<<endl;
+	}
+cout<<endl;
+
+#pragma omp parallel 
+{
+int id = omp_get_thread_num();
+p_ref->Search(td_array[id].l,td_array[id].u);
+}
+time2=time(NULL);
+//End threads
+cout<<"\n\nEND MAPPING\n"<<endl;
+endGlobal=clock();
+
+cout<<"\n=========================== TIME ===========================\n\n";
+cout<<"\tReal Time to find overlappings: "<<time2-time1<<"s."<<endl;
+cout<<"\tClock Time to find overlappings: "<<((double)(endGlobal-startGlobal))/CLOCKS_PER_SEC<<"s."<<endl;
+cout<<"\n============================================================\n\n";
+exit(EXIT_SUCCESS);
+}
+
+

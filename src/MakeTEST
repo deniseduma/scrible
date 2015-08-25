@@ -1,0 +1,26 @@
+YACC = yacc
+LEX = lex
+
+OPTION =  -O3 -Wall  -fmessage-length=0 -fopenmp 
+
+
+CC = gcc
+C++ = g++
+
+all: parserYacc.cpp parserLexer.o hashfilter
+
+clean: 
+	rm parserLexer.o parserLexer.c hashfilter parserYacc.cpp
+
+hashfilter: classIO.cpp hashfilter.cpp parserLexer.o parserYacc.cpp hashChaining.h  general.cpp classIO.h hashChainingInt.h classMybitset.h classMybitsetChar.h
+	$(C++) -o  hashfilter classIO.cpp hashfilter.cpp parserYacc.cpp general.cpp parserLexer.o   $(OPTION)
+
+parserLexer.o: parserLexer.c
+	$(CC) -c  parserLexer.c -Wall
+
+parserYacc.cpp:  parser.y operation.h
+	$(YACC)  -v -d -o parserYacc.cpp parser.y
+
+parserLexer.c : parser.l  
+	$(LEX) -o parserLexer.c  --header-file=parser.h parser.l
+

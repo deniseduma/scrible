@@ -1,0 +1,56 @@
+/***************************************************************************
+ *   Copyright (C) 2011 by Marco Beccuti   *
+ *   beccuti@di.unito.it   *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+
+//!Disable (0) the reverse in Hash Table
+#define REVERSE 0
+//!if 1 the input file extension is .fasta otherwise .txt
+#define FASTAEXFILE 0
+//!Enable detailed output 
+#define OUTPUT 0
+//!Enable Pools output  per scripts
+#define OUTPUTPOOLS 0
+//!Enable Pools output  per deconvolution
+#define OUTPUTPOOLSDEC 1
+//! If 1 we implement a normal search otherwise we implement search and if the objcet is found is moved as first element in the collision list
+#define SEARCHNORMAL 1
+//! If 1 we implement a correction step to select the pools in which a read is found based on read pools frequency
+#define CORRECTION 0
+//! If 1 we implement a correction step (only on the read not deconvoluted) to select the pools in which a read is found based on read pools frequency. It used only for 3 BAC overlapping
+#define CORRECTIONG 1	
+//! If 1 we implement a correction step on the reads
+#define CORRECTIONREAD 0
+//! If 1  we enable counting output
+#define COUNTING 0
+//!if 1 we use in the hash table integer instead of pointer and  a char vector to encodes the pools bitvector
+#define HASHINT  1
+//! if 1 enable the management of 3 BACS overlapping
+#define OVERLAPPING3 1
+//! if 1 we store in the hash table a frequency vector of dimension NUMC
+#define REPET 1
+//! if 1 save in a file the windows pools frequencies  (DEPRECATE)
+#define COUNTW 0
+//! if 1 enable the hash analisys (YACC&LEX)
+#define ANALYSIS 0
+//! if 1 enable reduce the HASH DIMENSION (the frequency vector is reduced of dimension). E.g. 1 for RICE
+#define REDUCEDHASH 0
+//! if 1 enable the output for Denise deconvolution tool 
+#define OUTPUTXDENISE 0
+//! it filters k-mers that do not appear in more than f pools out of the hashtable 
+#define FILTERKMERS 1

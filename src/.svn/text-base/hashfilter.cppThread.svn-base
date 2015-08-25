@@ -1,0 +1,157 @@
+/***************************************************************************
+ *   Copyright (C) 2011 by Marco Beccuti   *
+ *   beccuti@di.unito.it   *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+
+
+#ifndef CIO_H_
+	#define CIO_H
+	#include "classIO.h"
+#endif
+
+#ifndef HASH_H_
+	#define HASH_H_
+	#include "hashChaining.h"
+#endif
+
+#ifndef THR_H_
+	#define THR_H_
+	#include <pthread.h>
+#endif
+
+
+#include <sys/time.h>
+#include <sys/resource.h>
+
+
+
+using namespace IOFn;
+using namespace Cl_HASH;
+
+class IOF* p_ref; 
+
+struct thread_data* td_array;
+
+void* search (void* ptr)
+{
+thread_data* p=(thread_data*)ptr;
+p_ref->Search(p->l,p->u);
+}
+
+int main(int argc, char *argv[])
+{
+clock_t startGlobal,endGlobal;
+startGlobal=clock();
+
+cout<<"\n\n =========================================================\n";
+cout<<"|	     		FILTER OVERLAPPINGS 		      |\n";
+cout<<" =========================================================\n";
+cout<<"\n If you find any bug, send an email to beccuti@di.unito.it\n";
+
+
+
+if (argc!=8)
+	{
+	std::cerr<<"\n\nUSE: FILTER <path/ReadFile1> <path/OutputFile> <window> <files> <thread_number> <hash size> <collision list size>\n\n";
+		exit(EXIT_FAILURE);
+	}
+
+
+unsigned int qgram=atoi(argv[3]);
+unsigned int cores=atoi(argv[5]); 
+unsigned int files=atoi(argv[4]); 
+unsigned int hash=atoi(argv[6]);
+unsigned int list=atoi(argv[7]);
+
+
+
+cout<<"\n\n___________________________________________________________\n\n\t\t\tInput parameters \n___________________________________________________________\n\n";
+cout<<"\tWindow's size: "<<qgram<<"\n";
+cout<<"\tInput files: "<<files<<"\n";
+cout<<"\tThread numbers for mapping: "<<cores<<"\n";
+cout<<"\tHash table entries: "<<hash<<"\n";
+cout<<"\tList collision size: "<<list<<"\n";
+cout<<"___________________________________________________________\n";
+
+//cout<<"\n\nSTART EXECUTION...\n"<<endl;
+
+cout<<"\n\nSTART FORMATTING...\n"<<endl;
+string ReadFname(argv[1]);
+string IOread=std::string(argv[2]);
+int who = RUSAGE_SELF;  
+struct rusage usage;  
+/*int ret;  
+ret=getrusage(who,&usage); 
+cout<<"\n\n\tTotal memory used: "<<usage.ru_maxrss<<"KB"<<endl;*/
+class IOF ref(ReadFname,IOread,qgram,atoi(argv[4]),hash,list);
+startGlobal=clock();
+ref.Read();
+getrusage(who,&usage); 
+cout<<"\n\n\tTotal memory used: "<<usage.ru_maxrss<<"KB"<<endl;
+cout<<"\n\nEND FORMATTING\n"<<endl;
+endGlobal=clock();
+cout<<"\n=========================== TIME ===========================\n\n";
+cout<<"\tTime to create HASH TABLE: "<<((double)(endGlobal-startGlobal))/CLOCKS_PER_SEC<<"s."<<endl;
+cout<<"\n============================================================\n\n";
+startGlobal=clock();
+cout<<"\n\nSTART MAPPING...\n"<<endl;
+//Init threads
+p_ref=&ref;
+
+pthread_t* thread;
+/* Create independent threads each of which will execute function */
+td_array = (thread_data*) malloc (cores*sizeof(thread_data));
+thread = (pthread_t*) malloc (cores*sizeof(pthread_t));
+
+
+unsigned int last=0,dim=files/cores;
+if (cores>files)
+	{
+	cores=files;
+	cout<<"Reseting the cores used to "<<cores<<endl;
+	}
+for (int i=0;i<cores;i++)
+	{
+	td_array[i].l=last;
+	td_array[i].u=last+dim-1;
+	if ((td_array[i].u>files-1)||(i==cores-1))
+		td_array[i].u=files-1;
+	else
+		last=last+dim;
+	cout<<td_array[i].l<<" "<<td_array[i].u<<endl;
+	pthread_create((pthread_t*)(thread+i), NULL, search, (void*)(td_array+i));
+	}
+for (int i=0;i<cores;i++)
+	{
+	pthread_join(thread[i],NULL);
+	}
+//End threads
+cout<<"\n\nEND MAPPING\n"<<endl;
+endGlobal=clock();
+cout<<"\n=========================== TIME ===========================\n\n";
+cout<<"\tTime to find overlappings: "<<((double)(endGlobal-startGlobal))/CLOCKS_PER_SEC<<"s."<<endl;
+cout<<"\n============================================================\n\n";
+exit(EXIT_SUCCESS);
+}
+
+

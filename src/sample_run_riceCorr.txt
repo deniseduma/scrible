@@ -1,0 +1,1 @@
+corr /scratch12/denise/ecorrection/pool.fasta /scratch12/denise/ecorrection/pools_91_2197Sorted.dat /scratch12/denise/ecorrection/pool 26 91 1 

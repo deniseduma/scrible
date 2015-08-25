@@ -1,0 +1,1 @@
+hashfilter2 /scratch14/denise/naive/pool.fasta /scratch14/denise/naive/pools_91_2197Sorted.dat /scratch14/denise/naive/pool 26 91 1 

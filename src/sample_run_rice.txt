@@ -1,0 +1,1 @@
+./hashfilter /scratch14/denise/rice_with_errors/pool.fasta /scratch14/denise/rice_with_errors/pools_91_2197Sorted.dat /scratch14/denise/rice_with_errors/pool 26 91 10 

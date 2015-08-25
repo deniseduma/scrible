@@ -1,0 +1,57 @@
+YACC = yacc
+LEX = lex
+
+#CPPFLAGS = -O4 -Wall -Wextra -pedantic -ggdb -std=c++0x 
+CPPFLAGS = -O4 -Wall -ggdb -pg -std=c++0x 
+C_OMP = -fmessage-length=0 -fopenmp
+#OPTION =  -O4 -g -Wall -std=c++0x -fmessage-length=0 -fopenmp 
+
+EIGEN = /home/dduma/mylibs/include/Eigen
+
+CC = gcc
+C++ = g++
+
+all:	hashfilter read2Bac
+
+clean: 
+	rm  hashfilter read2BAC
+
+hashfilter:	classMybitset.h classMybitsetX.h classMybitsetXBac.h classIO.h classIO.cpp hashfilter.cpp hashChaining.h hashChaining.cpp read.cpp read2kmers.cpp overlap2kmers.cpp general.h general.cpp conf.h const.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  hashfilter hashfilter.cpp classIO.cpp hashChaining.cpp read2kmers.cpp overlap2kmers.cpp read.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+combined:	combined.cpp deconvolution3.cpp read.cpp overlap2kmers.cpp classMybitset.h classMybitsetX.h classIO.h classIO.cpp hashChaining.h hashChaining.cpp general.h general.cpp conf.h const.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  combined combined.cpp deconvolution3.cpp read.cpp overlap2kmers.cpp classIO.cpp hashChaining.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+err:	testErrors.cpp read2kmers.cpp classMybitset.h classMybitsetX.h classIO.h classIO.cpp hashChaining.h hashChaining.cpp general.h general.cpp conf.h const.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  err testErrors.cpp read2kmers.cpp classIO.cpp hashChaining.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+corr:	correction.h correction.cpp read2kmers.cpp read.cpp classMybitset.h classMybitsetX.h classMySig.h classIO.h classIO.cpp hashChaining.h hashChaining.cpp general.h general.cpp conf.h const.h trie.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  corr correction.cpp read2kmers.cpp read.cpp classIO.cpp hashChaining.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+corrT:	correctionThread.cpp read2kmers.cpp read.cpp classMybitset.h classMybitsetX.h classMySig.h classIO.h classIO.cpp hashChaining.h hashChaining.cpp general.h general.cpp conf.h const.h trie.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  corrT correctionThread.cpp read2kmers.cpp read.cpp classIO.cpp hashChaining.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+corrTNC:	correctionThreadNoCache.cpp read2kmers.cpp read.cpp classMybitset.h classMybitsetX.h classMybitsetXBac.h classMySig.h classIO.h classIO.cpp hashChaining.h general.h general.cpp conf.h const.h trie.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  corrTNC correctionThreadNoCache.cpp read2kmers.cpp read.cpp classIO.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+corr1:	correctionV1.cpp read2kmers.cpp read.cpp classMybitset.h classMybitsetX.h classMySig.h classIO.h classIO.cpp hashChaining.h hashChaining.cpp general.h general.cpp conf.h const.h trie.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  corr1 correctionV1.cpp read2kmers.cpp read.cpp classIO.cpp hashChaining.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+corr2:	correctionV2.cpp read2kmers.cpp read.cpp classMybitset.h classMybitsetX.h classMySig.h classIO.h classIO.cpp hashChaining.h hashChaining.cpp general.h general.cpp conf.h const.h trie.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  corr2 correctionV2.cpp read2kmers.cpp read.cpp classIO.cpp hashChaining.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+corr3:	correctionV3.cpp read2kmers.cpp read.cpp classMybitset.h classMybitsetX.h classMySig.h classIO.h classIO.cpp hashChaining.h hashChaining.cpp general.h general.cpp conf.h const.h trie.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  corr3 correctionV3.cpp read2kmers.cpp read.cpp classIO.cpp hashChaining.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+tp:	testProb.cpp classMybitset.h classMybitsetX.h classIO.h hashChaining.h general.h general.cpp
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  tp testProb.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+corrB:	correctionBest.cpp read2kmers.cpp read.cpp classMybitset.h classMybitsetX.h classMySig.h classIO.h classIO.cpp hashChaining.h hashChaining.cpp general.h general.cpp conf.h const.h trie.h
+	$(C++) $(CPPFLAGS) $(C_OMP) -o  corrB correctionBest.cpp read2kmers.cpp read.cpp classIO.cpp hashChaining.cpp general.cpp -I$(EIGEN) -DEIGEN_NO_DEBUG
+
+read2Bac:	read2Bac.cpp general.cpp general.h
+read2Bac:	read2Bac.cpp general.cpp general.h
+	$(C++) -o read2Bac read2Bac.cpp	general.cpp $(OPTION)
+
+trie: trie.cpp read.cpp
+	$(C++) $(CPPFLAGS) -o trie trie.cpp read.cpp -I$(EIGEN)

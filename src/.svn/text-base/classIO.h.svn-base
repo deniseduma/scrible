@@ -1,0 +1,305 @@
+#ifndef __FSTREAM__
+	#define __FSTREAM__
+	#include <fstream>
+#endif
+
+#ifndef __CON_H__
+	#define __CON_H__
+	#include "const.h"
+#endif
+
+#ifndef __CNF_H__
+	#define __CNF_H__
+	#include "conf.h"
+#endif
+
+
+
+#include <omp.h>	// OMP multithreading
+
+
+#ifndef __SSTREAM__
+	#define __SSTREAM__
+	#include <sstream>
+#endif
+
+#ifndef __IOS_H__
+	#define __IOS_H__
+	#include <iostream>
+#endif 
+
+
+#ifndef __STDL__
+	#define __STDL__
+	#include <stdlib.h>
+#endif
+
+#ifndef __STR_H__
+	#define __STR_H__
+	#include <string.h>
+
+#endif
+
+
+ 
+#ifndef __TIM_H__
+	#define __TIM_H__
+	#include <time.h>
+
+#endif
+
+#ifndef __GNR_H__
+	#define __GNR_H__
+	#include "general.h"
+
+#endif
+
+#if HASHINT
+	#ifndef HASH_H_
+		#define HASH_H_
+		#include "hashChainingInt.h"
+	#endif
+	#ifndef __CMB_H__
+		#define __CMB_H__
+		#include "classMybitsetChar.h"
+	#endif
+#else
+	#ifndef HASH_H_
+		#define HASH_H_
+		#include "hashChaining.h"
+	#endif
+	#ifndef __CMB_H__
+		#define __CMB_H__
+		#include "classMybitset.h"
+	#endif
+#endif
+
+#define DEBUGBAC 0
+
+
+
+namespace IOFn
+{
+using namespace std;
+using namespace MYBIT;
+using namespace Cl_HASH;
+
+class IOF
+{
+//!Input file, this name is concatented with an integer, so we assume the input file name [A-Ba-b0-9]+[0-1]+
+string ReadFname;
+//!Input file for mapping pools into a BAC.
+string BACFname;
+//!Output file
+string OFname;
+//!Window size
+int window;
+//!Read number
+unsigned int reads;
+//!Read counting
+unsigned long long count[POOLS];
+//!
+unsigned long long maxpools;
+//!Reject windows number
+int disc;
+//!number of input files
+int file;
+//! HASH TABLE for windows
+HASHCH<mybitset> sh;
+//! HASH TABLE for pool to back 
+HASHCH<mybitsetBAC> shBAC;
+#if FILTERKMERS
+//filter out all k-mers which do not appear in more then F pools
+HASHCH<mybitset>* me[F];
+HASHCH<mybitset>* others[F];
+#endif
+unsigned int hash, list;
+#if OVERLAPPING3
+//! BAC TABLE for manage three BAC overlappings
+bitset <POOLS> BACTable[BACS];
+#endif
+public:
+	//!Construtor. It takes in input/output file names, window size and the number of input files
+	IOF(std::string ReadFname,const std::string& BACFname,const std::string& OFname,const int& window,const int& file, const unsigned int& hash, const unsigned int& list){
+	this->BACFname=BACFname;
+	this->ReadFname=ReadFname;
+	this->OFname=OFname;
+	this->window=window;
+	this->file=file;
+	this->disc=0;
+	this->maxpools=0;
+	reads=0;
+	memset(count,0, POOLS*sizeof(long long) );
+#if FILTERKMERS
+	for (int f =0; f< F; f++) {
+		me[f] = new HASHCH<mybitset>();
+		others[f] = new HASHCH<mybitset>();
+	}
+#endif
+	this->hash = hash;
+	this->list = list;
+	};
+
+	//!Construtor. It takes in input/output file names.
+	IOF(std::string ReadFname,const std::string& BACFname,const std::string& OFname){
+	this->ReadFname=ReadFname;
+	this->OFname=OFname;
+	this->window=0;
+	this->file=0;
+	this->disc=0;
+	this->maxpools=0;
+	reads=0;
+	memset(count,0, POOLS*sizeof(long long) );
+#if FILTERKMERS
+	for (int f =0; f< F; f++) {
+		me[f] = new HASHCH<mybitset>();
+		others[f] = new HASHCH<mybitset>();
+	}
+#endif
+	this->hash = 0;
+	this->list = 0;
+	};
+
+	//!It takes in input the hash table size and allocates it.
+	void AllocHash(const unsigned int& hash,const unsigned int&list){
+	//initialized HASH TABLE
+	if (hash>0)
+#if FILTERKMERS
+	sh.UpdateHash(1/3.0 * hash, 1/3.0 * list);
+#else
+	sh.UpdateHash(hash, list);
+#endif	
+	else
+		{
+		std::cerr<<"\n\nERROR: hash size is"<<hash<<"\n";
+		exit(EXIT_FAILURE);
+		}
+	shBAC.UpdateHash(HASHBACS,HASHBACS);	
+#if FILTERKMERS
+	for (int f =0; f< F; f++) {
+		me[f]->UpdateHash(1/3.0 * hash, 1/3.0 * list);
+		others[f]->UpdateHash(1/3.0 * hash, 1/3.0 * list);
+	}
+#endif
+	};
+
+	//!It reads the input files containing reads and stores the their data into the Hash table 
+	void Read();
+	//!It writes the hash table data in the output file
+	void Write();
+	//!It reads the input files cantaining the BACs and stores the their data into the Hash table 
+	void ReadBac();
+	//!It returns the size of the k-mer hash table
+	unsigned int size() {return sh.size();}
+
+#if OVERLAPPING3
+	//!It creates a BAC TABLE (used to menage 3BAC overlapping) reading a file
+	void INITBACTable();
+#endif
+#if HASHINT
+
+	//!It reads the input files (in binary format) storing the their data into the Hash table 
+	inline bool ReadB(){
+	using namespace general;
+	FILE * pFile;
+	char delimC[] = ".";
+	Parser parser;
+	parser.update(delimC,ReadFname);
+	string tmp=parser.get(0)+".count";
+  	pFile = fopen ( tmp.c_str(), "r" );
+	if (pFile==NULL)
+  		{
+		cerr<<"\n*****Error opening input file .count *****" << endl;
+		cout<<"\nHash Table binary encoding not found!"<<endl;
+		return false;
+		}
+#if OVERLAPPING3
+	INITBACTable();
+#endif	
+	int POOLStmp=0;
+	if (fread (&POOLStmp, sizeof(unsigned int),1, pFile )!=1)	
+		{
+		cerr<<"Reading error"<<endl; 
+		exit (EXIT_FAILURE);
+		}
+	if (POOLStmp!=POOLS)
+		{
+		cerr<<"\n*****Error you read a different number of pools ("<<POOLStmp<<") *****" << endl;
+		return false;
+		}
+	if (fread (count, sizeof(unsigned long long),POOLS, pFile )!=POOLS)
+		{
+		cerr<<"Reading error"<<endl; 
+		exit (EXIT_FAILURE);
+		}
+	bool out1=sh.Read(parser.get(0));
+	for (int i=0;i<POOLS;i++)
+	if (maxpools< count[i])
+		maxpools=count[i];
+	return ((out1) && (shBAC.Read(BACFname)));
+
+	};
+
+	//!It writes the hash table data in the output file (in binary format).
+	inline void WriteB(){
+	using namespace general;
+	FILE * pFile;
+	char delimC[] = ".";
+	Parser parser;
+	parser.update(delimC,ReadFname);
+	string tmp=parser.get(0)+".count";
+  	pFile = fopen ( tmp.c_str(), "w" );
+	if (pFile==NULL)
+  		{
+		cerr<<"\n*****Error opening output file .count *****" << endl;
+		exit(EXIT_FAILURE);
+		}
+	//write pool number
+	int POOLStmp=POOLS;
+	fwrite (&POOLStmp, sizeof(int), 1, pFile );
+	//write number of windows for pools
+	fwrite (count, sizeof(unsigned long long), POOLS, pFile );
+	fclose (pFile);
+	cout<<"Windows frequencies for pool saved in:\n\t"<<tmp<<endl;
+	sh.Write(parser.get(0));
+	shBAC.Write(BACFname);
+	};
+	void  print(){
+		sh.print();
+	};
+#endif
+	//!It computes the DNA reverse
+	void convertN(char tmp[],const int& num);
+	//!It searchs in the hash table the windows of all reads, and return the pool contaning such window. 
+	void Search(int l, int u);
+	//!It saves in a file the windows pools frequencies and their means.
+	void Average(vector<class OPERATOR>::iterator it,int i);
+	//!It saves in a file the windows corrections.
+	void Correction(vector<class OPERATOR>::iterator it,int i);
+	//!It saves in a file the frequencies vector.
+	void Count(int i);
+#if CORRECTIONREAD
+	//!It performs  the read corrections.
+	void correction(class HASHCH<mybitset>& rd, char buffer[],const int& num,ofstream& out, short unsigned shortBAC[MAXOVERLAP],unsigned int& notcor,unsigned int& rep,unsigned int& highrep,unsigned int& totcorr,char name[]);
+#endif
+
+private:
+	//!It encodes a buffer[num] and the pool id on two bitsets and  stores them into the hash table. It returns true if buffer cantains only [A,G,T,C].
+	inline void  insert(const char buffer[],const int& num,const int& pool);
+	inline void  insertWithFiltering(const char buffer[],const int& num,const int& pool, int&, int&, int&);
+	//!It encodes a buffer[num] in bitsets, and it searchs  into the hash table. It returns true if buffer cantains only [A,G,T,C].
+	inline mybitsetBAC search(class HASHCH<mybitset>& rd,const char buffer[],const int& num,ofstream& out,unsigned short& BAC3);
+	
+};
+//! It uses for threads
+struct thread_data{
+   unsigned int l;
+   unsigned int u;
+};
+
+//! It prints the read signature and the BAC list
+inline int printBitset(mybitsetBAC& I,ofstream& out,unsigned short BAC3);
+
+
+}
+

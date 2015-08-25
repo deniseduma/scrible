@@ -1,0 +1,159 @@
+
+
+ =========================================================
+|	      	        HASHFILTER        	          |
+|	      	   FILTER OVERLAPPINGS     	          |
+ =========================================================
+
+ If you find any bug, send an email to beccuti@di.unito.it
+
+
+___________________________________________________________
+
+			Input parameters 
+___________________________________________________________
+
+	kmer size: 26
+	Number of input files: 91 with file extension ".txt"
+	Number of threads for mapping: 1
+___________________________________________________________
+
+
+START EXECUTION...
+
+Constructor of IOF called
+ReadFname is /scratch14/denise/rice_with_errors/pool.pp.ec.fasta
+Total size so far is 1488
+[ReadB]maxKmers is 148000000
+
+[hashChaining:Read]hash size read from file 5
+[hashChaining:Read]NumElements read from file 162350336
+[hashChaining:Read]Hash Table binary encoding found. Size is 162350336 and capacity 30000001
+
+[hashChaining:Read]hash size read from file 0
+[hashChaining:Read]NumElements read from file 2197
+[hashChaining:Read]Hash Table binary encoding found. Size is 2197 and capacity 1000393
+
+
+	Total memory used: 34.1013GB
+
+
+END EXECUTION
+
+
+=========================== TIME ===========================
+
+	Time to create HASH TABLE: 44.6s.
+
+============================================================
+
+
+
+START MAPPING...
+
+	 Thread 0 works on the pools from 0 to 90
+
+[hashChaining:Check correct]
+1 0
+2 0
+3 947314
+4 407470
+5 502386
+6 5053576
+7 59775980
+8 665956
+9 209778
+10 193997
+11 1180834
+12 10249599
+13 23703126
+14 34659630
+15 450374
+16 374874
+17 1123628
+18 2803528
+19 5218492
+20 5014007
+21 3299909
+22 220462
+23 363022
+24 646957
+25 597824
+26 712587
+27 354071
+28 258462
+29 189265
+30 216986
+31 200428
+32 181323
+33 148927
+34 118336
+35 113434
+36 113282
+37 96858
+38 87787
+39 84517
+40 79231
+41 70730
+42 67599
+43 61710
+44 59516
+45 54927
+46 51852
+47 50203
+48 50428
+49 44574
+50 42488
+51 40862
+52 38327
+53 39209
+54 35158
+55 34980
+56 32745
+57 32467
+58 30710
+59 30360
+60 28846
+61 28687
+62 27024
+63 26035
+64 25470
+65 25595
+66 23897
+67 23669
+68 22272
+69 21788
+70 22052
+71 21464
+72 21098
+73 20834
+74 19528
+75 20453
+76 19742
+77 19519
+78 19967
+79 19985
+80 19303
+81 20104
+82 19408
+83 19650
+84 20029
+85 22393
+86 22907
+87 24407
+88 26766
+89 31493
+90 44060
+91 134829
+
+
+END MAPPING
+
+
+=========================== TIME ===========================
+
+	Real Time to split reads into kmers: 23s.
+	Clock Time to split reads into kmers: 23.49s.
+
+============================================================
+

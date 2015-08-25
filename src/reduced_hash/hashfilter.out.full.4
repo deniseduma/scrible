@@ -1,0 +1,131 @@
+
+
+ =========================================================
+|	      	        HASHFILTER        	          |
+|	      	   FILTER OVERLAPPINGS     	          |
+ =========================================================
+
+ If you find any bug, send an email to beccuti@di.unito.it
+
+
+___________________________________________________________
+
+			Input parameters 
+___________________________________________________________
+
+	Window's size: 26
+	Input files: 3 with file extension ".txt"
+	Thread numbers for mapping: 1
+	Hash table entries: 583419469
+	List collision size: 583419469
+	Correction threshold: 0.05
+	Hash table pointer: INT
+	Pools vectors: char vector
+	Pool frequencies vector size: 24, with MAX FREQ: 65534
+___________________________________________________________
+
+
+START FORMATTING...
+
+
+Hash Table binary encoding not found!
+
+
+	Reads: 5343073 windows: 326495354 stored windows: 34695498.
+	Time to read pool 0:146.01s.
+
+
+	 Total k-mers: 0 k-mers appearing in more than 2 pools: 0
+
+
+
+	Reads: 12084911 windows: 396272820 stored windows: 58539701.
+	Time to read pool 1:180.62s.
+
+
+	 Total k-mers: 0 k-mers appearing in more than 2 pools: 0
+
+
+
+	Reads: 19040285 windows: 420770915 stored windows: 79594463.
+	Time to read pool 2:192.67s.
+
+
+	 Total k-mers: 0 k-mers appearing in more than 2 pools: 0
+
+34910330
+[main]The k-mer hashtable has 79594463 elements.
+
+
+	Total memory used: 8695396KB
+
+
+END FORMATTING
+
+
+=========================== TIME ===========================
+
+	Time to create HASH TABLE: 528.29s.
+
+============================================================
+
+
+---------------------- SAVE HASH TABLE ---------------------
+
+Windows frequencies for pool saved in:
+	/scratch11/marco/Data/hv4_reads_noncorrected/pool.count
+Hash table saved in:
+	/scratch11/marco/Data/hv4_reads_noncorrected/pool.hash
+Collisions' list saved in:
+	/scratch11/marco/Data/hv4_reads_noncorrected/pool.collist
+Hash table saved in:
+	/scratch11/marco/Data/hv4_reads_noncorrected/pools_91_2197Sorted.dat.hash
+Collisions' list saved in:
+	/scratch11/marco/Data/hv4_reads_noncorrected/pools_91_2197Sorted.dat.collist
+
+------------------------------------------------------------
+
+
+
+START MAPPING...
+
+	 Thread 0 works on the pools from 0 to 2
+
+[Search] txt in file /scratch11/marco/Data/hv4_reads_noncorrected/pool0.txt
+Reads 1000000
+Reads 2000000
+Reads 3000000
+Reads 4000000
+Reads 5000000
+
+
+	Deconvoluted reads: 0 not deconvoluted reads: 5343073
+
+	Time to search overlappings in 0: 260.78s.
+
+[Search] txt in file /scratch11/marco/Data/hv4_reads_noncorrected/pool1.txt
+
+
+	Deconvoluted reads: 0 not deconvoluted reads: 6741838
+
+	Time to search overlappings in 1: 319.25s.
+
+[Search] txt in file /scratch11/marco/Data/hv4_reads_noncorrected/pool2.txt
+
+
+	Deconvoluted reads: 0 not deconvoluted reads: 6955374
+
+	Time to search overlappings in 2: 296.67s.
+
+
+
+END MAPPING
+
+
+=========================== TIME ===========================
+
+	Real Time to find overlappings: 883s.
+	Clock Time to find overlappings: 876.7s.
+
+============================================================
+

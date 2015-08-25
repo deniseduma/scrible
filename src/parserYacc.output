@@ -1,0 +1,195 @@
+   0  $accept : File $end
+
+   1  File : File Formula ';'
+   2       | Formula ';'
+
+   3  Formula : Av
+   4          | Co
+   5          | KmC
+
+   6  Av : AVERAGE List
+
+   7  Co : CORREC List To
+
+   8  KmC : KMERCOUNT
+
+   9  To : STRING List
+
+  10  List : List ',' Op
+  11       | Op
+
+  12  Op : NUMBER
+
+state 0
+	$accept : . File $end  (0)
+
+	AVERAGE  shift 1
+	CORREC  shift 2
+	KMERCOUNT  shift 3
+	.  error
+
+	File  goto 4
+	Formula  goto 5
+	Av  goto 6
+	Co  goto 7
+	KmC  goto 8
+
+
+state 1
+	Av : AVERAGE . List  (6)
+
+	NUMBER  shift 9
+	.  error
+
+	List  goto 10
+	Op  goto 11
+
+
+state 2
+	Co : CORREC . List To  (7)
+
+	NUMBER  shift 9
+	.  error
+
+	List  goto 12
+	Op  goto 11
+
+
+state 3
+	KmC : KMERCOUNT .  (8)
+
+	.  reduce 8
+
+
+state 4
+	$accept : File . $end  (0)
+	File : File . Formula ';'  (1)
+
+	$end  accept
+	AVERAGE  shift 1
+	CORREC  shift 2
+	KMERCOUNT  shift 3
+	.  error
+
+	Formula  goto 13
+	Av  goto 6
+	Co  goto 7
+	KmC  goto 8
+
+
+state 5
+	File : Formula . ';'  (2)
+
+	';'  shift 14
+	.  error
+
+
+state 6
+	Formula : Av .  (3)
+
+	.  reduce 3
+
+
+state 7
+	Formula : Co .  (4)
+
+	.  reduce 4
+
+
+state 8
+	Formula : KmC .  (5)
+
+	.  reduce 5
+
+
+state 9
+	Op : NUMBER .  (12)
+
+	.  reduce 12
+
+
+state 10
+	Av : AVERAGE List .  (6)
+	List : List . ',' Op  (10)
+
+	','  shift 15
+	';'  reduce 6
+
+
+state 11
+	List : Op .  (11)
+
+	.  reduce 11
+
+
+state 12
+	Co : CORREC List . To  (7)
+	List : List . ',' Op  (10)
+
+	STRING  shift 16
+	','  shift 15
+	.  error
+
+	To  goto 17
+
+
+state 13
+	File : File Formula . ';'  (1)
+
+	';'  shift 18
+	.  error
+
+
+state 14
+	File : Formula ';' .  (2)
+
+	.  reduce 2
+
+
+state 15
+	List : List ',' . Op  (10)
+
+	NUMBER  shift 9
+	.  error
+
+	Op  goto 19
+
+
+state 16
+	To : STRING . List  (9)
+
+	NUMBER  shift 9
+	.  error
+
+	List  goto 20
+	Op  goto 11
+
+
+state 17
+	Co : CORREC List To .  (7)
+
+	.  reduce 7
+
+
+state 18
+	File : File Formula ';' .  (1)
+
+	.  reduce 1
+
+
+state 19
+	List : List ',' Op .  (10)
+
+	.  reduce 10
+
+
+state 20
+	To : STRING List .  (9)
+	List : List . ',' Op  (10)
+
+	','  shift 15
+	';'  reduce 9
+
+
+10 terminals, 9 nonterminals
+13 grammar rules, 21 states

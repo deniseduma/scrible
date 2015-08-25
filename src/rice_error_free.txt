@@ -1,0 +1,1 @@
+./err /scratch14/denise/rice_error_free/pool.fasta /scratch14/denise/rice_error_free/pools_91_2197Sorted.dat /scratch14/denise/rice_error_free/pool 26 1 1 

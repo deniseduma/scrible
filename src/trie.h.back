@@ -1,0 +1,116 @@
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+
+#include "const.h"
+
+using namespace std;
+
+class TrieNode
+{	
+public:
+	//The portion of the key corresponding to this node
+	unsigned short key;
+	// If word is equal to "" is because there is no word in the
+	//dictionary which ends here.
+	unsigned short value;
+	//The set with all the letters which this node is prefix
+	map<unsigned short, TrieNode*> children;
+
+	//!Constructor
+	TrieNode() : key(0),value(0),children(map<unsigned short, TrieNode*>()) {}
+};
+
+class Trie {
+private: 
+	TrieNode* root;
+public:
+//!Constructor
+Trie() {
+	root = new TrieNode();
+}
+
+//! Method to insert a new element into the trie
+void insert(unsigned short* k, unsigned int len, unsigned short v) {
+	TrieNode* crt=root;
+	for (unsigned int i=0;i<3;i++) { 
+		if (crt->children.find(k[i]) == crt->children.end()) 
+			crt->children[k[i]] = new TrieNode();
+		crt = crt->children[k[i]];
+		crt->key=k[i];
+	}
+	for (unsigned int i=3;i<len;i++) { 
+		if (crt->children.find(k[i]) == crt->children.end()) 
+			crt->children[k[i]] = new TrieNode();
+		//crt->value = v;
+		crt = crt->children[k[i]];
+		crt->key=k[i];
+	}
+	crt->value = v;
+};
+
+//! Method to search for an element in the trie
+void search(const unsigned short key[], const unsigned short& len, unsigned short res[], unsigned short& numRes) {
+	//unsigned short minValue;
+	unsigned short crtRow[len + 1];
+	// Naive DP initialization
+	for (unsigned short i=0;i<(len + 1);i++) 
+		crtRow[i]=i;
+	
+	unsigned short maxDist=0;
+	//Determine the maxDist we can tolerate
+	
+	/*if (len==6)
+		maxDist=1;
+	if (len>=7&&len<=HIGH)
+		maxDist=len-6;*/
+
+	if (len>=3&&len<=6)
+		maxDist=7-len;
+	if (len>=7&&len<=16)
+		maxDist=len-6;
+	if (len>16&&len<=HIGH)
+		maxDist=len-6;
+	
+	//For each letter in the root map wich matches with a
+	//letter in word, we must call the search
+	for (auto it=root->children.begin();it!=root->children.end();it++) {
+			//minValue=0;
+			_search(it->second,crtRow,key,len,maxDist,res,numRes);
+			//if (minValue!=0 /*&& minDist<=maxDist*/) 
+			//	res[numRes++]=minValue;
+	}
+};
+
+
+void _search(TrieNode* crt, unsigned short prevRow[], const unsigned short key[], const unsigned short& len, unsigned short maxDist, unsigned short res[], unsigned short& numRes) {
+
+unsigned short crtRow[len + 1];
+crtRow[0]=prevRow[0] + 1;
+unsigned short min=crtRow[0];
+unsigned short insert_or_del, replace;
+for (unsigned short i=1;i<(len + 1);i++) {
+	insert_or_del = ((crtRow[i-1] + 1) < (prevRow[i] + 1)) ? (crtRow[i-1] + 1) : (prevRow[i] +1);
+	replace = (key[i-1] == crt->key) ? prevRow[i-1] : (prevRow[i-1] + 1);
+	crtRow[i] = (insert_or_del < replace) ? insert_or_del : replace;
+	if (crtRow[i]<min)
+		min=crtRow[i];
+}
+//DEBUG
+//cout << "\t" << " pos in trie " << crt->key << " min so far " << min << endl;
+
+if ((crt->value!=0) && (crtRow[len] <= maxDist)) { 
+	res[numRes++] = crt->value;
+	//return;
+}	
+
+if (min<=maxDist)
+	for (auto it=crt->children.begin(); it!=crt->children.end();it++)
+		_search(it->second, crtRow, key, len, maxDist, res, numRes);
+
+}
+
+};
